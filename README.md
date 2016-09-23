@@ -14,7 +14,7 @@ Simple Python file indexing service for web servers.
 ### `indexer.json` file
 
 Each directory can be configured with `indexer.json` file. The `indexer.json`
-works recursively. Its structure is as follows:
+works recursively unless marked otherwise. Its structure is as follows:
 
 ```json
 {
@@ -22,6 +22,7 @@ works recursively. Its structure is as follows:
     "footer": "Extra information to show below the file table (HTML)",
     "sort_style": "One of following: ['name', 'size', 'date']",
     "sort_dir": "One of following: ['ascending', 'descending']",
+    "recursive": "Whether the file applies to subdirectories"
 }
 ```
 

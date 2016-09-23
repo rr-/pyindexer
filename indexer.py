@@ -101,6 +101,7 @@ class Settings:
     # footer: str = ''
     # sort_style: SortStyle = SortStyle.Date
     # sort_dir: SortDir = SortDir.Descending
+    # recursive: bool = True
 
     def __init__(self):
         # TODO: remove this version once Python 3.6 comes out
@@ -108,6 +109,7 @@ class Settings:
         self.footer = ''
         self.sort_style = SortStyle.Date
         self.sort_dir = SortDir.Descending
+        self.recursive = True
 
 
 def get_not_found_response(web_path: str) -> str:
@@ -139,9 +141,9 @@ def list_entries(
         SortStyle.Size: size_sort_func,
     }
 
-    # TODO: Use type annotations when Python 3.6 comes out
-    dir_entries = []
-    file_entries = []
+    # TODO: Use proper type annotations when Python 3.6 comes out
+    dir_entries = [] # type: List[object]
+    file_entries = [] # type: List[object]
     for entry in os.scandir(local_path):
         if entry.name != SETTINGS_FILE:
             [file_entries, dir_entries][entry.is_dir()].append(entry)
@@ -166,6 +168,8 @@ def deserialize_settings(settings_path: str) -> Settings:
                 settings.sort_style = SortStyle(obj['sort_style'])
             if 'sort_dir' in obj:
                 settings.sort_dir = SortDir(obj['sort_dir'])
+            if 'recursive' in obj:
+                settings.recursive = bool(obj['recursive'])
         except Exception as ex:
             logger.warning('Failed to decode %s (%s)', settings_path, ex)
         return settings
@@ -173,11 +177,16 @@ def deserialize_settings(settings_path: str) -> Settings:
 
 def get_settings(local_path: str, root_path: str) -> Settings:
     current_path = local_path
+    iterations = 0
     while current_path.startswith(root_path):
         settings_path = os.path.join(current_path, SETTINGS_FILE)
         current_path = os.path.dirname(current_path)
+        iterations += 1
         if os.path.exists(settings_path):
-            return deserialize_settings(settings_path)
+            settings = deserialize_settings(settings_path)
+            if iterations > 1 and not settings.recursive:
+                return Settings()
+            return settings
     return Settings()
 
 
