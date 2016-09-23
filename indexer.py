@@ -101,14 +101,10 @@ def get_not_found_response(web_path: str) -> str:
 
 def list_entries(
         local_path: str, sort_style: SortStyle, sort_dir: SortDir) -> List:
-    def convert(text: str) -> Any:
-        return int(text) if text.isdigit() else text.lower()
-
-    def alphanum_key(key: str) -> List[Any]:
-        return [convert(c) for c in re.split(r'(\d+)', key)]
-
     def name_sort_func(entry):
-        return alphanum_key(entry.name)
+        return [
+            int(text) if text.isdigit() else text.lower()
+            for text in re.split(r'(\d+)', entry.name)]
 
     def size_sort_func(entry):
         return entry.stat().st_size
@@ -128,11 +124,10 @@ def list_entries(
     for entry in os.scandir(local_path):
         if entry.name != SETTINGS_FILE:
             [file_entries, dir_entries][entry.is_dir()].append(entry)
-    dir_entries.sort(key=sort_funcs[sort_style])
-    file_entries.sort(key=sort_funcs[sort_style])
-    if sort_dir == SortDir.Descending:
-        dir_entries.reverse()
-        file_entries.reverse()
+    for group in (dir_entries, file_entries):
+        group.sort(key=sort_funcs[sort_style])
+        if sort_dir == SortDir.Descending:
+            group.reverse()
     return dir_entries + file_entries
 
 
