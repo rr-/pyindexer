@@ -74,6 +74,9 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             background: #F4F4F4;
         }}
         td i {{
+            display: inline-block;
+            text-align: center;
+            width: 1em;
             font-style: normal;
             padding-right: 0.25em;
         }}
@@ -85,6 +88,14 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
 NOT_FOUND_TEMPLATE = '''
         <h1>Not found</h1>
         <p>The path <code>{path}</code> was not found on this server.</p>
+'''
+
+ROW_TEMPLATE = '''
+        <tr>
+            <td class="name"><i>{icon}</i> <a href="{url}">{name}</a></td>
+            <td class="size">{size}</td>
+            <td class="date">{date:%Y-%m-%d %H:%M}</td>
+        </tr>
 '''
 
 
@@ -146,8 +157,8 @@ def list_entries(
     }
 
     # TODO: Use proper type annotations when Python 3.6 comes out
-    dir_entries = [] # type: List[object]
-    file_entries = [] # type: List[object]
+    dir_entries = []  # type: List[object]
+    file_entries = []  # type: List[object]
     for entry in os.scandir(local_path):
         if entry.name != SETTINGS_FILE:
             [file_entries, dir_entries][entry.is_dir()].append(entry)
@@ -214,20 +225,24 @@ def get_listing_response(
     body += '</tr></thead>'
     body += '<tbody>'
 
+    body += ROW_TEMPLATE.format(
+        icon='\N{UPWARDS ARROW WITH TIP LEFTWARDS}',
+        url=os.path.join(base_url, web_path, os.path.pardir),
+        name='..',
+        size='-',
+        date=datetime.fromtimestamp(
+            os.stat(os.path.join(local_path, os.path.pardir)).st_mtime))
+
     for entry in list_entries(
             local_path, settings.sort_style, settings.sort_dir):
         stat = entry.stat()
         name = entry.name + ('/' if entry.is_dir() else '')
-        body += '''<tr>
-                <td class="name"><i>{icon}</i> <a href="{url}">{name}</a></td>
-                <td class="size">{size}</td>
-                <td class="date">{date:%Y-%m-%d %H:%M}</td>
-            </tr>'''.format(
-                icon=['\N{EMPTY DOCUMENT}', '\N{FILE FOLDER}'][entry.is_dir()],
-                url=os.path.join(base_url, web_path, name),
-                name=name,
-                size='-' if entry.is_dir() else naturalsize(stat.st_size),
-                date=datetime.fromtimestamp(stat.st_mtime))
+        body += ROW_TEMPLATE.format(
+            icon=['\N{EMPTY DOCUMENT}', '\N{FILE FOLDER}'][entry.is_dir()],
+            url=os.path.join(base_url, web_path, name),
+            name=name,
+            size='-' if entry.is_dir() else naturalsize(stat.st_size),
+            date=datetime.fromtimestamp(stat.st_mtime))
     body += '</tbody>'
     body += '</table>'
     body += settings.footer
