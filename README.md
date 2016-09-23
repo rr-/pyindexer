@@ -17,6 +17,14 @@ Simple Python file indexer for web servers.
 
 ![20160923_153452_jml](https://cloud.githubusercontent.com/assets/1045476/18787485/5bae31bc-81a3-11e6-8ca6-fa041be4ad0b.png)
 
+### Why not fancyindex or mod\_autoindex
+
+Fancyindex didn't suit my fancy
+([#16](https://github.com/aperezdc/ngx-fancyindex/issues/16),
+[#17](https://github.com/aperezdc/ngx-fancyindex/issues/17),
+[#48](https://github.com/aperezdc/ngx-fancyindex/issues/48)) plus you gotta
+compile it in yourself, whereas mod\_autoindex while being nice, is
+unfortunately not available for nginx.
 
 ### `indexer.json` file
 
