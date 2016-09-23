@@ -17,16 +17,62 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <meta charset="utf-8"/>
     <title>{title}</title>
     <style type="text/css">
-        body {{ background: #FFFAF5; font-family: sans-serif; }}
-        a {{ color: green; }}
-        a:hover {{ color: red; }}
-        a:visited {{ color: maroon; }}
-        table {{ border-collapse: collapse; min-width: 50vw; }}
-        h1 {{ font-size: 20pt; font-weight: normal; }}
-        th, td {{ text-align: left; padding: 0.3em; }}
-        th {{ font-weight: normal; background: #DDC; }}
-        td {{ border-left: 1px solid #DDC; border-right: 1px solid #DDC; }}
-        tr:last-child td {{ border-bottom: 1px solid #DDC; }}
+        body {{
+            background: #fafafa;
+            color: #444;
+            font-family: sans-serif;
+        }}
+        a {{
+            color: green;
+            text-decoration: none;
+        }}
+        a:hover {{
+            color: red;
+        }}
+        a:visited {{
+            color: brown;
+        }}
+        table {{
+            margin: 1em 0;
+            min-width: 50vw;
+            border-collapse: collapse;
+        }}
+        .size {{
+            width: 8em;
+        }}
+        .date {{
+            width: 10em;
+        }}
+        th {{
+            font-weight: normal;
+            text-align: left;
+            background: #DDC;
+            border: 1px solid #AAA;
+        }}
+        h1 {{
+            font-size: 20pt;
+            font-weight: normal;
+            padding: 0;
+            margin: 0;
+        }}
+        hr {{
+            margin: 0.25em 0;
+            border: 1px solid #ddd;
+        }}
+        td, th {{
+            text-align: left;
+            padding: 0.2em 0.4em;
+        }}
+        td {{
+            border-left: 1px solid #AAA;
+            border-right: 1px solid #AAA;
+        }}
+        tr:last-child td {{
+            border-bottom: 1px solid #AAA;
+        }}
+        tr:nth-child(even) {{
+            background: #F4F4F4;
+        }}
     </style>
 </head>
     <body>{body}</body>
@@ -50,7 +96,7 @@ class SortDir(Enum):
 
 
 class Settings:
-    # Python 3.6
+    # TODO: use this version once Python 3.6 comes out
     # path: str = None
     # header: str = ''
     # footer: str = ''
@@ -59,6 +105,7 @@ class Settings:
 
     def __init__(self, path):
         self.path = path
+        # TODO: remove this version once Python 3.6 comes out
         self.header = ''
         self.footer = ''
         self.sort_style = SortStyle.Date
@@ -94,10 +141,12 @@ def list_entries(
         SortStyle.Size: size_sort_func,
     }
 
-    dir_entries, file_entries = [], []
+    # TODO: Use type annotations when Python 3.6 comes out
+    dir_entries = []
+    file_entries = []
     for entry in os.scandir(local_path):
         if entry.name != SETTINGS_FILE:
-            (file_entries, dir_entries)[entry.is_dir()].append(entry)
+            [file_entries, dir_entries][entry.is_dir()].append(entry)
     dir_entries.sort(key=sort_funcs[sort_style])
     file_entries.sort(key=sort_funcs[sort_style])
     if sort_dir == SortDir.Descending:
@@ -133,8 +182,9 @@ def get_listing_response(base_url: str, local_path: str, web_path: str) -> str:
     body += settings.header
     body += '<table>'
     body += '<thead><tr>'
-    for column_name in ['Name', 'Size', 'Date']:
-        body += '<th>%s</th>' % column_name
+    body += '<th class="name">Name</th>'
+    body += '<th class="size">Size</th>'
+    body += '<th class="date">Date</th>'
     body += '</tr></thead>'
     body += '<tbody>'
 
@@ -143,9 +193,9 @@ def get_listing_response(base_url: str, local_path: str, web_path: str) -> str:
         stat = entry.stat()
         name = entry.name + ('/' if entry.is_dir() else '')
         body += '''<tr>
-                <td><a href="{url}">{name}</a></td>
-                <td>{size}</td>
-                <td>{date:%Y-%m-%d %H:%M}</td>
+                <td class="name"><a href="{url}">{name}</a></td>
+                <td class="size">{size}</td>
+                <td class="date">{date:%Y-%m-%d %H:%M}</td>
             </tr>'''.format(
                 url=os.path.join(base_url, web_path, name),
                 name=name,
