@@ -13,6 +13,8 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <style type="text/css">
         body {{ background: #FFFAF5; font-family: sans-serif; }}
         a {{ color: green; }}
+        a:hover {{ color: red; }}
+        a:visited {{ color: maroon; }}
         table {{ border-collapse: collapse; min-width: 50vw; }}
         h1 {{ font-size: 20pt; font-weight: normal; }}
         th, td {{ text-align: left; padding: 0.3em; }}
