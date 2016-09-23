@@ -12,99 +12,51 @@ logger = getLogger(__name__)
 
 
 SETTINGS_FILE = 'indexer.json'
-HTML_TEMPLATE = '''<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8"/>
-    <title>{title}</title>
-    <style type="text/css">
-        body {{
-            background: #fafafa;
-            color: #444;
-            font-family: sans-serif;
-        }}
-        a {{
-            color: green;
-            text-decoration: none;
-        }}
-        a:hover {{
-            color: red;
-        }}
-        a:visited {{
-            color: brown;
-        }}
-        table {{
-            margin: 1em 0;
-            min-width: 50vw;
-            border-collapse: collapse;
-        }}
-        .size {{
-            width: 8em;
-        }}
-        .date {{
-            width: 10em;
-        }}
-        th {{
-            font-weight: normal;
-            text-align: left;
-            background: #DDC;
-            border: 1px solid #AAA;
-        }}
-        h1 {{
-            font-size: 20pt;
-            font-weight: normal;
-            padding: 0;
-            margin: 0;
-        }}
-        hr {{
-            margin: 0.25em 0;
-            border: 1px solid #ddd;
-        }}
-        td, th {{
-            text-align: left;
-            padding: 0.2em 0.4em;
-        }}
-        td {{
-            border-left: 1px solid #AAA;
-            border-right: 1px solid #AAA;
-        }}
-        tr:last-child td {{
-            border-bottom: 1px solid #AAA;
-        }}
-        tr:nth-child(even) {{
-            background: #F4F4F4;
-        }}
-        th i {{
-            display: inline-block;
-            text-align: center;
-            width: 1em;
-            font-style: normal;
-            padding-left: 0.25em;
-        }}
-        td i {{
-            display: inline-block;
-            text-align: center;
-            width: 1em;
-            font-style: normal;
-            padding-right: 0.25em;
-        }}
-    </style>
-</head>
-    <body>{body}</body>
-</html>'''
 
-NOT_FOUND_TEMPLATE = '''
-        <h1>Not found</h1>
-        <p>The path <code>{path}</code> was not found on this server.</p>
-'''
+CSS = (
+    'body{background:#fafafa;color:#444;font-family:sans-serif}' +
+    'a{color:green;text-decoration:none}' +
+    'a:hover{color:red}' +
+    'a:visited{color:brown}' +
+    'table{margin:1em 0;min-width:50vw;border-collapse:collapse}' +
+    '.size{width:8em}' +
+    '.date{width:10em}' +
+    'th{font-weight:normal;background:#DDC;border:1px solid #AAA}' +
+    'h1{font-weight:normal;font-size:20pt;padding:0;margin:0}' +
+    'td, th{text-align:left;padding:0.2em 0.4em}' +
+    'td{border-left:1px solid #AAA;border-right:1px solid #AAA}' +
+    'tr:last-child td{border-bottom:1px solid #AAA}' +
+    'tr:nth-child(even){background:#F4F4F4}' +
+    '.icon{display:inline-block;text-align:center;width:1em}' +
+    'th .icon{padding-left:0.25em}' +
+    'td .icon{padding-right:0.25em}')
 
-ROW_TEMPLATE = '''
-        <tr>
-            <td class="name"><i>{icon}</i> <a href="{url}">{name}</a></td>
-            <td class="size">{size}</td>
-            <td class="date">{date:%Y-%m-%d %H:%M}</td>
-        </tr>
-'''
+HTML_TEMPLATE = (
+    '<!DOCTYPE html>' +
+    '<html>' +
+    '<head>' +
+    '<meta charset="utf-8"/>' +
+    '<title>{title}</title>' +
+    '<style type="text/css">' +
+    CSS.replace('{', '{{').replace('}', '}}') +
+    '</style>' +
+    '</head>' +
+    '<body>{body}</body>' +
+    '</html>')
+
+NOT_FOUND_TEMPLATE = (
+    '<h1>Not found</h1>' +
+    '<p>The path <code>{path}</code> was not found on this server.</p>')
+
+ROW_TEMPLATE = (
+    '<tr>' +
+    '<td class="name">' +
+    '<span class="icon">{icon}</span> ' +
+    '<a href="{url}">{name}</a>' +
+    '</td>' +
+    '<td class="size">{size}</td>' +
+    '<td class="date">{date:%Y-%m-%d %H:%M}</td>' +
+    '</tr>')
 
 
 class SortStyle(Enum):
@@ -226,7 +178,7 @@ def update_settings_from_query_string(settings: Settings, query_string: str):
             settings.sort_style = SortStyle(obj['sort_style'])
         if 'sort_dir' in obj:
             settings.sort_dir = SortDir(obj['sort_dir'])
-    except Exception as ex:
+    except:
         pass
 
 
@@ -262,10 +214,12 @@ def get_listing_response(
 
         body += names[sort_style]
         if sort_style == settings.sort_style:
+            body += '<span class="icon">'
             if settings.sort_dir == SortDir.Ascending:
-                body += '<i>\N{BLACK MEDIUM DOWN-POINTING TRIANGLE}</i>'
+                body += '\N{BLACK MEDIUM DOWN-POINTING TRIANGLE}'
             else:
-                body += '<i>\N{BLACK MEDIUM UP-POINTING TRIANGLE}</i>'
+                body += '\N{BLACK MEDIUM UP-POINTING TRIANGLE}'
+            body += '</span>'
 
         body += '</a>'
         body += '</th>'
