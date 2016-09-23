@@ -14,16 +14,20 @@ Simple Python file indexing service for web servers.
 ### `indexer.json` file
 
 Each directory can be configured with `indexer.json` file. The `indexer.json`
-doesn't work recursively. Its structure is as follows:
+works recursively. Its structure is as follows:
 
 ```json
 {
     "header": "Extra information to show above the file table (HTML)",
     "footer": "Extra information to show below the file table (HTML)",
     "sort_style": "One of following: ['name', 'size', 'date']",
-    "sort_dir": "One of following: ['ascending', 'descending']"
+    "sort_dir": "One of following: ['ascending', 'descending']",
 }
 ```
+
+Note that the engine looks for `indexer.json` in parent directories and *stops
+on the first file found*. It does *not* merge settings
+from multiple parent directories.
 
 
 ### Example deployment with nginx, uwsgi and systemd

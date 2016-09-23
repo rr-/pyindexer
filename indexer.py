@@ -97,14 +97,12 @@ class SortDir(Enum):
 
 class Settings:
     # TODO: use this version once Python 3.6 comes out
-    # path: str = None
     # header: str = ''
     # footer: str = ''
     # sort_style: SortStyle = SortStyle.Date
     # sort_dir: SortDir = SortDir.Descending
 
-    def __init__(self, path):
-        self.path = path
+    def __init__(self):
         # TODO: remove this version once Python 3.6 comes out
         self.header = ''
         self.footer = ''
@@ -155,29 +153,39 @@ def list_entries(
     return dir_entries + file_entries
 
 
-def get_settings(local_path: str) -> Settings:
-    settings_path = os.path.join(local_path, SETTINGS_FILE)
-    settings = Settings(settings_path)
-    if os.path.exists(settings_path):
-        with open(settings_path, 'r') as handle:
-            try:
-                obj = json.load(handle)
-                if 'header' in obj:
-                    settings.header = str(obj['header'])
-                if 'footer' in obj:
-                    settings.footer = str(obj['footer'])
-                if 'sort_style' in obj:
-                    settings.sort_style = SortStyle(obj['sort_style'])
-                if 'sort_dir' in obj:
-                    settings.sort_dir = SortDir(obj['sort_dir'])
-            except Exception as ex:
-                logger.warning('Failed to decode %s (%s)', settings_path, ex)
-    return settings
+def deserialize_settings(settings_path: str) -> Settings:
+    settings = Settings()
+    with open(settings_path, 'r') as handle:
+        try:
+            obj = json.load(handle)
+            if 'header' in obj:
+                settings.header = str(obj['header'])
+            if 'footer' in obj:
+                settings.footer = str(obj['footer'])
+            if 'sort_style' in obj:
+                settings.sort_style = SortStyle(obj['sort_style'])
+            if 'sort_dir' in obj:
+                settings.sort_dir = SortDir(obj['sort_dir'])
+        except Exception as ex:
+            logger.warning('Failed to decode %s (%s)', settings_path, ex)
+        return settings
 
 
-def get_listing_response(base_url: str, local_path: str, web_path: str) -> str:
-    settings = get_settings(local_path)
+def get_settings(local_path: str, root_path: str) -> Settings:
+    current_path = local_path
+    while current_path.startswith(root_path):
+        settings_path = os.path.join(current_path, SETTINGS_FILE)
+        current_path = os.path.dirname(current_path)
+        if os.path.exists(settings_path):
+            return deserialize_settings(settings_path)
+    return Settings()
 
+
+def get_listing_response(
+        base_url: str,
+        local_path: str,
+        web_path: str,
+        settings: Settings) -> str:
     body = '<h1>Index of '
     link = '/'
     for group in [f for f in web_path.split('/') if f] + ['']:
@@ -218,7 +226,8 @@ def application(
         env: Mapping[str, object], start_response: Callable) -> List[bytes]:
     base_url = '%s://%s/' % (env['REQUEST_SCHEME'], env['HTTP_HOST'])
     web_path = str(env['PATH_INFO'])
-    local_path = str(env['DOCUMENT_ROOT']) + web_path
+    root_path = str(env['DOCUMENT_ROOT'])
+    local_path = root_path + web_path
     if not os.path.exists(local_path):
         start_response('404 Not Found', [('Content-Type', 'text/html')])
         return [get_not_found_response(web_path).encode()]
@@ -228,5 +237,8 @@ def application(
         with open(local_path, 'rb') as handle:
             return [handle.read()]
 
+    settings = get_settings(local_path, root_path)
+
     start_response('200 OK', [('Content-Type', 'text/html')])
-    return [get_listing_response(base_url, local_path, web_path).encode()]
+    return [get_listing_response(
+        base_url, local_path, web_path, settings).encode()]
