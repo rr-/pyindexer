@@ -12,7 +12,7 @@ Simple Python file indexer for web servers.
 4. Server-side sorting!
 5. User-side sorting!
 6. Pretty!
- 
+
 ### What it looks like
 
 ![20160923_153452_jml](https://cloud.githubusercontent.com/assets/1045476/18787485/5bae31bc-81a3-11e6-8ca6-fa041be4ad0b.png)
@@ -28,7 +28,7 @@ works recursively unless marked otherwise. Its structure is as follows:
     "header": "Extra information to show above the file table (HTML)",
     "footer": "Extra information to show below the file table (HTML)",
     "sort_style": "One of following: ['name', 'size', 'date']",
-    "sort_dir": "One of following: ['ascending', 'descending']",
+    "sort_dir": "One of following: ['asc', 'desc']",
     "recursive": "Whether the file applies to subdirectories"
 }
 ```
