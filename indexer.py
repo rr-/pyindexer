@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from enum import Enum
 from logging import getLogger
 from typing import Mapping, List, Any, Callable
 from datetime import datetime
@@ -37,43 +38,99 @@ NOT_FOUND_TEMPLATE = '''
 '''
 
 
-def get_not_found_response(web_path):
+class SortStyle(Enum):
+    Date = 'date'
+    Name = 'name'
+    Size = 'size'
+
+
+class SortDir(Enum):
+    Ascending = 'asc'
+    Descending = 'desc'
+
+
+class Settings:
+    # Python 3.6
+    # path: str = None
+    # header: str = ''
+    # footer: str = ''
+    # sort_style: SortStyle = SortStyle.Date
+    # sort_dir: SortDir = SortDir.Descending
+
+    def __init__(self, path):
+        self.path = path
+        self.header = ''
+        self.footer = ''
+        self.sort_style = SortStyle.Date
+        self.sort_dir = SortDir.Descending
+
+
+def get_not_found_response(web_path: str) -> str:
     return HTML_TEMPLATE.format(
         title='Not found',
         body=NOT_FOUND_TEMPLATE.format(path=web_path))
 
 
-def list_entries(local_path: str) -> List:
+def list_entries(
+        local_path: str, sort_style: SortStyle, sort_dir: SortDir) -> List:
     def convert(text: str) -> Any:
         return int(text) if text.isdigit() else text.lower()
 
     def alphanum_key(key: str) -> List[Any]:
         return [convert(c) for c in re.split(r'(\d+)', key)]
 
-    def sort_func(entry):
-        return not entry.is_dir(), alphanum_key(entry.name)
+    def name_sort_func(entry):
+        return alphanum_key(entry.name)
 
-    entries = list(e for e in os.scandir(local_path) if e.name != SETTINGS_FILE)
-    entries.sort(key=sort_func)
-    return entries
+    def size_sort_func(entry):
+        return entry.stat().st_size
+
+    def date_sort_func(entry):
+        return entry.stat().st_mtime
+
+    sort_funcs = {
+        SortStyle.Name: name_sort_func,
+        SortStyle.Date: date_sort_func,
+        SortStyle.Size: size_sort_func,
+    }
+
+    dir_entries, file_entries = [], []
+    for entry in os.scandir(local_path):
+        if entry.name != SETTINGS_FILE:
+            (file_entries, dir_entries)[entry.is_dir()].append(entry)
+    dir_entries.sort(key=sort_funcs[sort_style])
+    file_entries.sort(key=sort_funcs[sort_style])
+    if sort_dir == SortDir.Descending:
+        dir_entries.reverse()
+        file_entries.reverse()
+    return dir_entries + file_entries
 
 
-def get_settings(local_path: str) -> Mapping[str, object]:
+def get_settings(local_path: str) -> Settings:
     settings_path = os.path.join(local_path, SETTINGS_FILE)
+    settings = Settings(settings_path)
     if os.path.exists(settings_path):
         with open(settings_path, 'r') as handle:
             try:
-                return json.load(handle)
+                obj = json.load(handle)
+                if 'header' in obj:
+                    settings.header = str(obj['header'])
+                if 'footer' in obj:
+                    settings.footer = str(obj['footer'])
+                if 'sort_style' in obj:
+                    settings.sort_style = SortStyle(obj['sort_style'])
+                if 'sort_dir' in obj:
+                    settings.sort_dir = SortDir(obj['sort_dir'])
             except Exception as ex:
                 logger.warning('Failed to decode %s (%s)', settings_path, ex)
-    return {}
+    return settings
 
 
 def get_listing_response(base_url: str, local_path: str, web_path: str) -> str:
     settings = get_settings(local_path)
 
     body = '<h1>Index of ' + web_path + '</h1>'
-    body += str(settings.get('header', ''))
+    body += settings.header
     body += '<table>'
     body += '<thead><tr>'
     for column_name in ['Name', 'Size', 'Date']:
@@ -81,7 +138,8 @@ def get_listing_response(base_url: str, local_path: str, web_path: str) -> str:
     body += '</tr></thead>'
     body += '<tbody>'
 
-    for entry in list_entries(local_path):
+    for entry in list_entries(
+            local_path, settings.sort_style, settings.sort_dir):
         stat = entry.stat()
         name = entry.name + ('/' if entry.is_dir() else '')
         body += '''<tr>
@@ -95,7 +153,7 @@ def get_listing_response(base_url: str, local_path: str, web_path: str) -> str:
                 date=datetime.fromtimestamp(stat.st_mtime))
     body += '</tbody>'
     body += '</table>'
-    body += str(settings.get('footer', ''))
+    body += settings.footer
     return HTML_TEMPLATE.format(
         title='Index of ' + web_path,
         body=body)

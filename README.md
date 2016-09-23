@@ -18,7 +18,9 @@ doesn't work recursively. Its structure is as follows:
 ```json
 {
     "header": "Extra information to show above the file table (HTML)",
-    "footer": "Extra information to show below the file table (HTML)"
+    "footer": "Extra information to show below the file table (HTML)",
+    "sort_style": "One of following: ['name', 'size', 'date']",
+    "sort_dir": "One of following: ['ascending', 'descending']"
 }
 ```
 
