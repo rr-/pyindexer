@@ -49,6 +49,7 @@ from multiple parent directories.
 5. Run `systemctl --user enable indexer` to start indexer service at boot.
 6. Run `systemctl --user start indexer` to run indexer now.
 7. Edit `/etc/nginx.conf` and configure your site to use indexer:
+
     ```
     upstream indexer {
         server 127.0.0.1:40001;
@@ -61,5 +62,6 @@ from multiple parent directories.
         }
     }
     ```
+
 8. Run `systemctl restart nginx` and open the site with your favorite web
    browser to see indexer in action.
