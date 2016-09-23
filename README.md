@@ -3,6 +3,26 @@ pyindexer
 
 Simple Python file indexing service for web servers.
 
+
+### Supported features
+
+1. Indexing!
+2. Custom headers and footers!
+
+
+### `indexer.json` file
+
+Each directory can be configured with `indexer.json` file. The `indexer.json`
+doesn't work recursively. Its structure is as follows:
+
+```json
+{
+    "header": "Extra information to show above the file table (HTML)",
+    "footer": "Extra information to show below the file table (HTML)"
+}
+```
+
+
 ### Example deployment with nginx, uwsgi and systemd
 
 1. Copy `indexer.service` to `~/.config/systemd/user`.
