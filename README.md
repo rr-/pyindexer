@@ -9,6 +9,8 @@ Simple Python file indexing service for web servers.
 1. Indexing!
 2. Breadcrumbs!
 3. Custom headers and footers!
+4. Server-side sorting!
+5. User-side sorting!
 
 
 ### `indexer.json` file

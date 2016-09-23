@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from urllib.parse import parse_qsl
 from enum import Enum
 from logging import getLogger
 from typing import Mapping, List, Any, Callable
@@ -73,6 +74,13 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         tr:nth-child(even) {{
             background: #F4F4F4;
         }}
+        th i {{
+            display: inline-block;
+            text-align: center;
+            width: 1em;
+            font-style: normal;
+            padding-left: 0.25em;
+        }}
         td i {{
             display: inline-block;
             text-align: center;
@@ -108,6 +116,12 @@ class SortStyle(Enum):
 class SortDir(Enum):
     Ascending = 'asc'
     Descending = 'desc'
+
+    @staticmethod
+    def reverse(sort_dir: 'SortDir') -> 'SortDir':
+        if sort_dir == SortDir.Ascending:
+            return SortDir.Descending
+        return SortDir.Ascending
 
 
 class Settings:
@@ -205,6 +219,17 @@ def get_settings(local_path: str, root_path: str) -> Settings:
     return Settings()
 
 
+def update_settings_from_query_string(settings: Settings, query_string: str):
+    try:
+        obj = dict(parse_qsl(query_string))
+        if 'sort_style' in obj:
+            settings.sort_style = SortStyle(obj['sort_style'])
+        if 'sort_dir' in obj:
+            settings.sort_dir = SortDir(obj['sort_dir'])
+    except Exception as ex:
+        pass
+
+
 def get_listing_response(
         base_url: str,
         local_path: str,
@@ -219,9 +244,32 @@ def get_listing_response(
     body += settings.header
     body += '<table>'
     body += '<thead><tr>'
-    body += '<th class="name">Name</th>'
-    body += '<th class="size">Size</th>'
-    body += '<th class="date">Date</th>'
+
+    classes = {
+        SortStyle.Name: 'name',
+        SortStyle.Date: 'date',
+        SortStyle.Size: 'size',
+    }
+    names = {key: value.title() for key, value in classes.items()}
+
+    for sort_style in [SortStyle.Name, SortStyle.Size, SortStyle.Date]:
+        body += '<th class="{}">'.format(classes[sort_style])
+        body += '<a href="?sort_style={}&sort_dir={}">'.format(
+            sort_style.value,
+            SortDir.reverse(settings.sort_dir).value
+            if sort_style == settings.sort_style
+            else SortDir.Ascending.value)
+
+        body += names[sort_style]
+        if sort_style == settings.sort_style:
+            if settings.sort_dir == SortDir.Ascending:
+                body += '<i>\N{BLACK MEDIUM DOWN-POINTING TRIANGLE}</i>'
+            else:
+                body += '<i>\N{BLACK MEDIUM UP-POINTING TRIANGLE}</i>'
+
+        body += '</a>'
+        body += '</th>'
+
     body += '</tr></thead>'
     body += '<tbody>'
 
@@ -257,6 +305,8 @@ def application(
     web_path = str(env['PATH_INFO'])
     root_path = str(env['DOCUMENT_ROOT'])
     local_path = root_path + web_path
+    query_string = str(env['QUERY_STRING'])
+
     if not os.path.exists(local_path):
         start_response('404 Not Found', [('Content-Type', 'text/html')])
         return [get_not_found_response(web_path).encode()]
@@ -267,6 +317,7 @@ def application(
             return [handle.read()]
 
     settings = get_settings(local_path, root_path)
+    update_settings_from_query_string(settings, query_string)
 
     start_response('200 OK', [('Content-Type', 'text/html')])
     return [get_listing_response(
