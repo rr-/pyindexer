@@ -11,7 +11,8 @@ Simple Python file indexer for web servers.
 3. Custom headers and footers!
 4. Server-side sorting!
 5. User-side sorting!
-6. Pretty!
+6. Version sorting!
+7. Pretty!
 
 ### What it looks like
 
@@ -22,9 +23,9 @@ Simple Python file indexer for web servers.
 Fancyindex didn't suit my fancy
 ([#16](https://github.com/aperezdc/ngx-fancyindex/issues/16),
 [#17](https://github.com/aperezdc/ngx-fancyindex/issues/17),
-[#48](https://github.com/aperezdc/ngx-fancyindex/issues/48)) plus you gotta
-compile it in yourself, whereas mod\_autoindex while being nice, is
-unfortunately not available for nginx.
+[#48](https://github.com/aperezdc/ngx-fancyindex/issues/48), doesn't support
+natural sorting, you gotta compile it in yourself etc.), whereas mod\_autoindex
+while being nice, is unfortunately not available for nginx.
 
 ### `indexer.json` file
 
