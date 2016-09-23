@@ -1,16 +1,21 @@
 pyindexer
 =========
 
-Simple Python file indexing service for web servers.
+Simple Python file indexer for web servers.
 
 
-### Supported features
+### Features
 
 1. Indexing!
 2. Breadcrumbs!
 3. Custom headers and footers!
 4. Server-side sorting!
 5. User-side sorting!
+6. Pretty!
+ 
+### What it looks like
+
+![20160923_153452_jml](https://cloud.githubusercontent.com/assets/1045476/18787485/5bae31bc-81a3-11e6-8ca6-fa041be4ad0b.png)
 
 
 ### `indexer.json` file
