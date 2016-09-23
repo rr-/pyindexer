@@ -226,7 +226,7 @@ def get_listing_response(
                 icon=['\N{EMPTY DOCUMENT}', '\N{FILE FOLDER}'][entry.is_dir()],
                 url=os.path.join(base_url, web_path, name),
                 name=name,
-                size=naturalsize(stat.st_size),
+                size='-' if entry.is_dir() else naturalsize(stat.st_size),
                 date=datetime.fromtimestamp(stat.st_mtime))
     body += '</tbody>'
     body += '</table>'
