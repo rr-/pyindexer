@@ -73,6 +73,10 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         tr:nth-child(even) {{
             background: #F4F4F4;
         }}
+        td i {{
+            font-style: normal;
+            padding-right: 0.25em;
+        }}
     </style>
 </head>
     <body>{body}</body>
@@ -215,10 +219,11 @@ def get_listing_response(
         stat = entry.stat()
         name = entry.name + ('/' if entry.is_dir() else '')
         body += '''<tr>
-                <td class="name"><a href="{url}">{name}</a></td>
+                <td class="name"><i>{icon}</i> <a href="{url}">{name}</a></td>
                 <td class="size">{size}</td>
                 <td class="date">{date:%Y-%m-%d %H:%M}</td>
             </tr>'''.format(
+                icon=['\N{EMPTY DOCUMENT}', '\N{FILE FOLDER}'][entry.is_dir()],
                 url=os.path.join(base_url, web_path, name),
                 name=name,
                 size=naturalsize(stat.st_size),
