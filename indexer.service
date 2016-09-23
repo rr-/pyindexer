@@ -1,0 +1,11 @@
+[Unit]
+Description=indexer
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/uwsgi --wsgi-file /home/rr-/src/indexer/indexer.py --socket 127.0.0.1:40001
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
