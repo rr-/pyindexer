@@ -178,7 +178,12 @@ def get_settings(local_path: str) -> Settings:
 def get_listing_response(base_url: str, local_path: str, web_path: str) -> str:
     settings = get_settings(local_path)
 
-    body = '<h1>Index of ' + web_path + '</h1>'
+    body = '<h1>Index of '
+    link = '/'
+    for group in [f for f in web_path.split('/') if f] + ['']:
+        body += '<a href="%s">/</a>%s' % (link, group)
+        link += '%s/' % group
+    body += '</h1>'
     body += settings.header
     body += '<table>'
     body += '<thead><tr>'

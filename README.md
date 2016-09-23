@@ -7,7 +7,8 @@ Simple Python file indexing service for web servers.
 ### Supported features
 
 1. Indexing!
-2. Custom headers and footers!
+2. Breadcrumbs!
+3. Custom headers and footers!
 
 
 ### `indexer.json` file
