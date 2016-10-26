@@ -1,7 +1,7 @@
 import os
 import re
 import json
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, quote
 from enum import Enum
 from logging import getLogger
 from typing import Mapping, List, Any, Callable
@@ -224,7 +224,7 @@ def get_listing_response(
 
     body += ROW_TEMPLATE.format(
         icon='\N{UPWARDS ARROW WITH TIP LEFTWARDS}',
-        url=os.path.join(base_url, web_path, os.path.pardir),
+        url=os.path.join(base_url, quote(web_path), os.path.pardir),
         name='..',
         size='-',
         date=datetime.fromtimestamp(
@@ -236,7 +236,7 @@ def get_listing_response(
         name = entry.name + ('/' if entry.is_dir() else '')
         body += ROW_TEMPLATE.format(
             icon=['\N{EMPTY DOCUMENT}', '\N{FILE FOLDER}'][entry.is_dir()],
-            url=os.path.join(base_url, web_path, name),
+            url=os.path.join(base_url, quote(web_path), quote(name)),
             name=name,
             size='-' if entry.is_dir() else naturalsize(stat.st_size),
             date=datetime.fromtimestamp(stat.st_mtime))
