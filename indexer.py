@@ -2,66 +2,14 @@ import os
 import re
 import json
 from urllib.parse import parse_qsl, quote
+from jinja2 import Environment, FileSystemLoader
 from enum import Enum
 from logging import getLogger
 from typing import Mapping, List, Any, Callable
 from datetime import datetime
-from humanize import naturalsize
 
 logger = getLogger(__name__)
-
-
 SETTINGS_FILE = 'indexer.json'
-
-CSS = (
-    'body{background:#fafafa;color:#444;font-family:sans-serif}' +
-    'a{color:green;text-decoration:none}' +
-    'a:hover{color:red}' +
-    'a:visited{color:brown}' +
-    'table{margin:1em 0;min-width:50vw;border-collapse:collapse}' +
-    '.size{width:8em}' +
-    '.date{width:10em}' +
-    'th{font-weight:normal;background:#DDC;border:1px solid #AAA}' +
-    'h1{font-weight:normal;font-size:20pt;padding:0;margin:0}' +
-    'td, th{text-align:left;padding:0.2em 0.4em}' +
-    'td{border-left:1px solid #AAA;border-right:1px solid #AAA}' +
-    'tr:last-child td{border-bottom:1px solid #AAA}' +
-    'tr:nth-child(even){background:#F4F4F4}' +
-    '.icon{display:inline-block;text-align:center;width:16px;height:16px;background-repeat:no-repeat;background-size:contain}' +
-    '.icon.go-up{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTMgMTRoLTJWN0g3LjA1MVY1SDEzeiIvPjxwYXRoIGZpbGw9IiM0NDQiIGQ9Ik04IDkuMzkxTDIgNmw2LTMuMzkxeiIvPjwvc3ZnPg==")}' +
-    '.icon.dir{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48ZyBmaWxsPSIjNDQ0Ij48cGF0aCBkPSJNNSAzaDEwdjJINXpNMSA2aDE0djdIMXoiLz48L2c+PC9zdmc+")}' +
-    '.icon.file{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTMgMTVIM1YxaDcuNjAxTDEzIDMuNFYxNXpNMTEgNUw5IDNINXYxMGg2VjV6Ii8+PC9zdmc+")}' +
-    '.icon.sort-asc{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTQgMTNMOCA3bC02IDZ6Ii8+PC9zdmc+")}' +
-    '.icon.sort-desc{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTQgOGwtNiA2LTYtNnoiLz48L3N2Zz4=")}' +
-    'th .icon{padding-left:0.25em}' +
-    'td .icon{padding-right:0.25em}')
-
-HTML_TEMPLATE = (
-    '<!DOCTYPE html>' +
-    '<html>' +
-    '<head>' +
-    '<meta charset="utf-8"/>' +
-    '<title>{title}</title>' +
-    '<style type="text/css">' +
-    CSS.replace('{', '{{').replace('}', '}}') +
-    '</style>' +
-    '</head>' +
-    '<body>{body}</body>' +
-    '</html>')
-
-NOT_FOUND_TEMPLATE = (
-    '<h1>Not found</h1>' +
-    '<p>The path <code>{path}</code> was not found on this server.</p>')
-
-ROW_TEMPLATE = (
-    '<tr>' +
-    '<td class="name">' +
-    '<span class="icon {class_name}"></span> ' +
-    '<a href="{url}">{name}</a>' +
-    '</td>' +
-    '<td class="size">{size}</td>' +
-    '<td class="date">{date:%Y-%m-%d %H:%M}</td>' +
-    '</tr>')
 
 
 class SortStyle(Enum):
@@ -98,24 +46,47 @@ class Settings:
         self.recursive = True
 
 
-def get_not_found_response(web_path: str) -> str:
-    return HTML_TEMPLATE.format(
-        title='Not found',
-        body=NOT_FOUND_TEMPLATE.format(path=web_path))
+class EntryProxy:
+    def __init__(
+            self, base_url: str, web_path: str, path: str,
+            is_dir: bool, stat: os.stat_result) -> None:
+        self.path = path
+        self.name = os.path.basename(self.path)
+        self.url = os.path.join(base_url, quote(web_path), quote(self.name))
+        self.is_dir = is_dir
+        self.size = stat.st_size
+        self.mtime = datetime.fromtimestamp(stat.st_mtime)
+
+    @staticmethod
+    def from_scandir(base_url: str, web_path: str, entry: Any):
+        return EntryProxy(
+            base_url, web_path, entry.path, entry.is_dir(), entry.stat())
+
+    @staticmethod
+    def from_path(base_url: str, web_path: str, local_path: str):
+        return EntryProxy(
+            base_url, web_path, local_path,
+            os.path.isdir(local_path),
+            os.stat(local_path))
+
+
+def get_not_found_response(jinja_env: Any, web_path: str) -> str:
+    return jinja_env.get_template('not-found.htm').render(path=web_path)
 
 
 def list_entries(
-        local_path: str, sort_style: SortStyle, sort_dir: SortDir) -> List:
+        base_url: str, web_path: str, local_path: str,
+        sort_style: SortStyle, sort_dir: SortDir) -> List[EntryProxy]:
     def name_sort_func(entry):
         return [
             int(text) if text.isdigit() else text.lower()
             for text in re.split(r'(\d+)', entry.name)]
 
     def size_sort_func(entry):
-        return entry.stat().st_size
+        return entry.size
 
     def date_sort_func(entry):
-        return entry.stat().st_mtime
+        return entry.mtime
 
     sort_funcs = {
         SortStyle.Name: name_sort_func,
@@ -124,15 +95,23 @@ def list_entries(
     }
 
     # TODO: Use proper type annotations when Python 3.6 comes out
-    dir_entries = []  # type: List[object]
-    file_entries = []  # type: List[object]
+    dir_entries = []  # type: List[EntryProxy]
+    file_entries = []  # type: List[EntryProxy]
     for entry in os.scandir(local_path):
-        if entry.name != SETTINGS_FILE:
-            [file_entries, dir_entries][entry.is_dir()].append(entry)
+        if entry.name == SETTINGS_FILE:
+            continue
+        entry_proxy = EntryProxy.from_scandir(base_url, web_path, entry)
+        [file_entries, dir_entries][entry.is_dir()].append(entry_proxy)
+
     for group in (dir_entries, file_entries):
         group.sort(key=sort_funcs[sort_style])
         if sort_dir == SortDir.Descending:
             group.reverse()
+
+    dir_entries.insert(
+        0, EntryProxy.from_path(
+            base_url, web_path, os.path.join(local_path, '..')))
+
     return dir_entries + file_entries
 
 
@@ -183,84 +162,49 @@ def update_settings_from_query_string(settings: Settings, query_string: str):
 
 
 def get_listing_response(
+        jinja_env: Any,
         base_url: str,
         local_path: str,
         web_path: str,
         settings: Settings) -> str:
-    body = '<h1>Index of '
+
+    links = []
     link = '/'
     for group in [f for f in web_path.split('/') if f] + ['']:
-        body += '<a href="%s">/</a>%s' % (link, group)
+        links.append((link, group))
         link += '%s/' % group
-    body += '</h1>'
-    body += settings.header
-    body += '<table>'
-    body += '<thead><tr>'
 
-    classes = {
-        SortStyle.Name: 'name',
-        SortStyle.Date: 'date',
-        SortStyle.Size: 'size',
-    }
-    names = {key: value.title() for key, value in classes.items()}
-
-    for sort_style in [SortStyle.Name, SortStyle.Size, SortStyle.Date]:
-        body += '<th class="{}">'.format(classes[sort_style])
-        body += '<a href="?sort_style={}&sort_dir={}">'.format(
-            sort_style.value,
-            SortDir.reverse(settings.sort_dir).value
-            if sort_style == settings.sort_style
-            else SortDir.Ascending.value)
-
-        body += names[sort_style]
-        if sort_style == settings.sort_style:
-            body += ' <span class="icon %s"></span>' % (
-                ['sort-desc', 'sort-asc']
-                [settings.sort_dir == SortDir.Ascending])
-
-        body += '</a>'
-        body += '</th>'
-
-    body += '</tr></thead>'
-    body += '<tbody>'
-
-    body += ROW_TEMPLATE.format(
-        class_name='go-up',
-        url=os.path.join(base_url, quote(web_path), os.path.pardir),
-        name='..',
-        size='-',
-        date=datetime.fromtimestamp(
-            os.stat(os.path.join(local_path, os.path.pardir)).st_mtime))
-
-    for entry in list_entries(
-            local_path, settings.sort_style, settings.sort_dir):
-        stat = entry.stat()
-        name = entry.name + ('/' if entry.is_dir() else '')
-        body += ROW_TEMPLATE.format(
-            class_name=['file', 'dir'][entry.is_dir()],
-            url=os.path.join(base_url, quote(web_path), quote(name)),
-            name=name,
-            size='-' if entry.is_dir() else naturalsize(stat.st_size),
-            date=datetime.fromtimestamp(stat.st_mtime))
-    body += '</tbody>'
-    body += '</table>'
-    body += settings.footer
-    return HTML_TEMPLATE.format(
-        title='Index of ' + web_path,
-        body=body)
+    return jinja_env.get_template('index.htm').render(
+        SortDir=SortDir,
+        sort_styles=(
+            (SortStyle.Name, 'name'),
+            (SortStyle.Date, 'date'),
+            (SortStyle.Size, 'size'),
+        ),
+        settings=settings,
+        path=web_path,
+        links=links,
+        entries=list_entries(
+            base_url, web_path, local_path,
+            settings.sort_style, settings.sort_dir))
 
 
 def application(
         env: Mapping[str, object], start_response: Callable) -> List[bytes]:
+
+    templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    jinja_env = Environment(loader=FileSystemLoader(templates_dir))
+
     base_url = '%s://%s/' % (env['REQUEST_SCHEME'], env['HTTP_HOST'])
-    web_path = str(env['PATH_INFO'].encode('latin-1').decode('utf-8'))
+    web_path = str(env['PATH_INFO']).encode('latin-1').decode('utf-8')
     root_path = str(env['DOCUMENT_ROOT'])
     local_path = root_path + web_path
     query_string = str(env['QUERY_STRING'])
 
     if not os.path.exists(local_path):
         start_response('404 Not Found', [('Content-Type', 'text/html')])
-        return [get_not_found_response(web_path).encode()]
+        return [get_not_found_response(jinja_env, web_path).encode()]
+
     if not os.path.isdir(local_path):
         start_response(
             '200 OK', [('Content-Type', 'application/octet-stream')])
@@ -272,4 +216,4 @@ def application(
 
     start_response('200 OK', [('Content-Type', 'text/html')])
     return [get_listing_response(
-        base_url, local_path, web_path, settings).encode()]
+        jinja_env, base_url, local_path, web_path, settings).encode()]

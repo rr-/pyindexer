@@ -1,0 +1,59 @@
+{% extends "base.htm" %}
+{% block title %}Index of {{ path }}{% endblock %}
+{% block content %}
+
+<h1>Index of
+    {% for link, group in links -%}
+        <a href="{{ link }}">/</a>{{- group }}
+    {%- endfor -%}
+</h1>
+
+{{ settings.header }}
+
+<table>
+    <thead>
+        <tr>
+        {%- for sort_style, name in sort_styles %}
+            <th class="{{ sort_style.value }}">
+            {%- set sort_dir = SortDir.reverse(settings.sort_dir) if sort_style == settings.sort_style else SortDir.Ascending %}
+                <a href="?sort_style={{ sort_style.value }}&sort_dir={{ sort_dir.value }}">
+                    {{ name | title }}
+                    {%- if sort_style == settings.sort_style %}
+                    {%- if settings.sort_dir == SortDir.Ascending %}
+                    <span class="icon sort-asc"></span>
+                    {%- else %}
+                    <span class="icon sort-desc"></span>
+                    {%- endif %}
+                    {%- endif %}
+                </a>
+            </th>
+        {%- endfor %}
+        </tr>
+    </thead>
+
+    <tbody>
+    {%- for entry in entries %}
+        <tr>
+            <td class="name">
+                {%- if entry.name == '..': %}
+                <span class="icon go-up"></span>
+                {%- elif entry.is_dir: %}
+                <span class="icon dir"></span>
+                {%- else %}
+                <span class="icon file"></span>
+                {%- endif %}
+                <a href="{{ entry.url }}">{{ entry.name }}</a>
+            </td>
+            {%- if entry.is_dir: %}
+            <td class="size">-</td>
+            {%- else %}
+            <td class="size">{{ entry.size | filesizeformat }}</td>
+            {%- endif %}
+            <td class="date">{{ entry.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+    {%- endfor %}
+    </tbody>
+</table>
+
+{{ settings.footer }}
+{% endblock %}

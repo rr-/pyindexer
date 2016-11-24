@@ -49,8 +49,8 @@ from multiple parent directories.
 
 ### Example deployment with nginx, uwsgi and systemd
 
-1. Install dependencies (`wsgi` for integration with nginx and `humanize` for
-   pretty file sizes) with `pip`: `pip install -r requirements.txt`.
+1. Install dependencies (`wsgi` for integration with nginx and `jinja` for
+   sane HTML rendering) with `pip`: `pip install -r requirements.txt`.
 2. Copy `indexer.service` to `~/.config/systemd/user`.
 3. Edit `~/.config/systemd/user/indexer.service` and change the path to the
    `indexer.py` script.

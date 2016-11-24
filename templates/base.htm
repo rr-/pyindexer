@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        {% block head %}
+        <meta charset='utf-8'/>
+        <title>{% block title %}{% endblock %}</title>
+        <style type='text/css'>
+            body {
+                background: #FAFAFA;
+                color: #444;
+                font-family: sans-serif;
+            }
+            a {
+                color: green;
+                text-decoration: none;
+            }
+            a:hover {
+                color: red;
+            }
+            a:visited {
+                color: brown;
+            }
+
+            h1 {
+                font-weight: normal;
+                font-size: 20pt;
+                padding: 0;
+                margin: 0;
+            }
+
+            table {
+                margin: 1em 0;
+                min-width: 50vw;
+                border-collapse: collapse;
+            }
+            th {
+                font-weight: normal;
+                background: #DDC;
+                border: 1px solid #AAA;
+            }
+            td, th {
+                text-align: left;
+                padding: 0.2em 0.4em;
+            }
+            td {
+                border-left: 1px solid #AAA;
+                border-right: 1px solid #AAA;
+            }
+            tr:last-child td {
+                border-bottom: 1px solid #AAA;
+            }
+            tr:nth-child(even) {
+                background: #F4F4F4;
+            }
+            .size {
+                width: 8em;
+            }
+            .date {
+                width: 10em;
+            }
+
+            .icon {
+                display: inline-block;
+                text-align: center;
+                width: 16px;
+                height: 16px;
+                background-repeat: no-repeat;
+                background-size: contain;
+            }
+            .icon.go-up {
+                background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTMgMTRoLTJWN0g3LjA1MVY1SDEzeiIvPjxwYXRoIGZpbGw9IiM0NDQiIGQ9Ik04IDkuMzkxTDIgNmw2LTMuMzkxeiIvPjwvc3ZnPg==");
+            }
+            .icon.dir {
+                background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48ZyBmaWxsPSIjNDQ0Ij48cGF0aCBkPSJNNSAzaDEwdjJINXpNMSA2aDE0djdIMXoiLz48L2c+PC9zdmc+");
+            }
+            .icon.file {
+                background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTMgMTVIM1YxaDcuNjAxTDEzIDMuNFYxNXpNMTEgNUw5IDNINXYxMGg2VjV6Ii8+PC9zdmc+");
+            }
+            .icon.sort-asc {
+                background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTQgMTNMOCA3bC02IDZ6Ii8+PC9zdmc+");
+            }
+            .icon.sort-desc {
+                background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTQgOGwtNiA2LTYtNnoiLz48L3N2Zz4=");
+            }
+            th .icon {
+                padding-left: 0.25em;
+            }
+            td .icon {
+                padding-right: 0.25em;
+            }
+        </style>
+        {% endblock %}
+    </head>
+    <body>
+        {% block content %}{% endblock %}
+    </body>
+</html>
