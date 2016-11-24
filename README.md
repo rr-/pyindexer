@@ -16,7 +16,7 @@ Simple Python file indexer for web servers.
 
 ### What it looks like
 
-![20160923_153452_jml](https://cloud.githubusercontent.com/assets/1045476/18787485/5bae31bc-81a3-11e6-8ca6-fa041be4ad0b.png)
+![20161124_115320_soq](https://cloud.githubusercontent.com/assets/1045476/20597637/272a5100-b245-11e6-8445-503d2ef4e9e9.png)
 
 ### Why not fancyindex or mod\_autoindex
 
