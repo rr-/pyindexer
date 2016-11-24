@@ -251,7 +251,7 @@ def get_listing_response(
 def application(
         env: Mapping[str, object], start_response: Callable) -> List[bytes]:
     base_url = '%s://%s/' % (env['REQUEST_SCHEME'], env['HTTP_HOST'])
-    web_path = str(env['PATH_INFO'])
+    web_path = str(env['PATH_INFO'].encode('latin-1').decode('utf-8'))
     root_path = str(env['DOCUMENT_ROOT'])
     local_path = root_path + web_path
     query_string = str(env['QUERY_STRING'])
