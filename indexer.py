@@ -27,7 +27,12 @@ CSS = (
     'td{border-left:1px solid #AAA;border-right:1px solid #AAA}' +
     'tr:last-child td{border-bottom:1px solid #AAA}' +
     'tr:nth-child(even){background:#F4F4F4}' +
-    '.icon{display:inline-block;text-align:center;width:1em}' +
+    '.icon{display:inline-block;text-align:center;width:16px;height:16px;background-repeat:no-repeat;background-size:contain}' +
+    '.icon.go-up{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTMgMTRoLTJWN0g3LjA1MVY1SDEzeiIvPjxwYXRoIGZpbGw9IiM0NDQiIGQ9Ik04IDkuMzkxTDIgNmw2LTMuMzkxeiIvPjwvc3ZnPg==")}' +
+    '.icon.dir{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48ZyBmaWxsPSIjNDQ0Ij48cGF0aCBkPSJNNSAzaDEwdjJINXpNMSA2aDE0djdIMXoiLz48L2c+PC9zdmc+")}' +
+    '.icon.file{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTMgMTVIM1YxaDcuNjAxTDEzIDMuNFYxNXpNMTEgNUw5IDNINXYxMGg2VjV6Ii8+PC9zdmc+")}' +
+    '.icon.sort-asc{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTQgMTNMOCA3bC02IDZ6Ii8+PC9zdmc+")}' +
+    '.icon.sort-desc{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjNDQ0IiBkPSJNMTQgOGwtNiA2LTYtNnoiLz48L3N2Zz4=")}' +
     'th .icon{padding-left:0.25em}' +
     'td .icon{padding-right:0.25em}')
 
@@ -51,7 +56,7 @@ NOT_FOUND_TEMPLATE = (
 ROW_TEMPLATE = (
     '<tr>' +
     '<td class="name">' +
-    '<span class="icon">{icon}</span> ' +
+    '<span class="icon {class_name}"></span> ' +
     '<a href="{url}">{name}</a>' +
     '</td>' +
     '<td class="size">{size}</td>' +
@@ -209,12 +214,9 @@ def get_listing_response(
 
         body += names[sort_style]
         if sort_style == settings.sort_style:
-            body += '<span class="icon">'
-            if settings.sort_dir == SortDir.Ascending:
-                body += '\N{BLACK MEDIUM DOWN-POINTING TRIANGLE}'
-            else:
-                body += '\N{BLACK MEDIUM UP-POINTING TRIANGLE}'
-            body += '</span>'
+            body += ' <span class="icon %s"></span>' % (
+                ['sort-desc', 'sort-asc']
+                [settings.sort_dir == SortDir.Ascending])
 
         body += '</a>'
         body += '</th>'
@@ -223,7 +225,7 @@ def get_listing_response(
     body += '<tbody>'
 
     body += ROW_TEMPLATE.format(
-        icon='\N{UPWARDS ARROW WITH TIP LEFTWARDS}',
+        class_name='go-up',
         url=os.path.join(base_url, quote(web_path), os.path.pardir),
         name='..',
         size='-',
@@ -235,7 +237,7 @@ def get_listing_response(
         stat = entry.stat()
         name = entry.name + ('/' if entry.is_dir() else '')
         body += ROW_TEMPLATE.format(
-            icon=['\N{EMPTY DOCUMENT}', '\N{FILE FOLDER}'][entry.is_dir()],
+            class_name=['file', 'dir'][entry.is_dir()],
             url=os.path.join(base_url, quote(web_path), quote(name)),
             name=name,
             size='-' if entry.is_dir() else naturalsize(stat.st_size),
