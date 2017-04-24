@@ -53,6 +53,8 @@ class EntryProxy:
         self.path = path
         self.name = os.path.basename(self.path)
         self.url = os.path.join(base_url, quote(web_path), quote(self.name))
+        if is_dir:
+            self.url += '/'
         self.is_dir = is_dir
         self.size = stat.st_size
         self.mtime = datetime.fromtimestamp(stat.st_mtime)
