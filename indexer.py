@@ -180,8 +180,8 @@ def get_listing_response(
         SortDir=SortDir,
         sort_styles=(
             (SortStyle.Name, 'name'),
-            (SortStyle.Date, 'date'),
             (SortStyle.Size, 'size'),
+            (SortStyle.Date, 'date'),
         ),
         settings=settings,
         path=web_path,
