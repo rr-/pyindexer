@@ -102,6 +102,10 @@ def list_entries(
     for entry in os.scandir(local_path):
         if entry.name == SETTINGS_FILE:
             continue
+        try:
+            entry.stat()
+        except FileNotFoundError:
+            continue
         entry_proxy = EntryProxy.from_scandir(base_url, web_path, entry)
         [file_entries, dir_entries][entry.is_dir()].append(entry_proxy)
 
