@@ -38,7 +38,8 @@ works recursively unless marked otherwise. Its structure is as follows:
     "footer": "Extra information to show below the file table (HTML)",
     "sort_style": "One of following: ['name', 'size', 'date']",
     "sort_dir": "One of following: ['asc', 'desc']",
-    "recursive": "Whether the file applies to subdirectories"
+    "recursive": "Whether the file applies to subdirectories",
+    "filter": "Optional regex for hiding files by their names"
 }
 ```
 

@@ -31,6 +31,7 @@ class SortDir(Enum):
 
 class Settings:
     # TODO: use this version once Python 3.6 comes out
+    # filter: str = ''
     # header: str = ''
     # footer: str = ''
     # sort_style: SortStyle = SortStyle.Date
@@ -39,6 +40,7 @@ class Settings:
 
     def __init__(self):
         # TODO: remove this version once Python 3.6 comes out
+        self.filter = ''
         self.header = ''
         self.footer = ''
         self.sort_style = SortStyle.Date
@@ -77,7 +79,7 @@ def get_not_found_response(jinja_env: Any, web_path: str) -> str:
 
 
 def list_entries(
-        base_url: str, web_path: str, local_path: str,
+        base_url: str, web_path: str, local_path: str, filter: str,
         sort_style: SortStyle, sort_dir: SortDir) -> List[EntryProxy]:
     def name_sort_func(entry):
         return [
@@ -107,6 +109,8 @@ def list_entries(
         except FileNotFoundError:
             continue
         entry_proxy = EntryProxy.from_scandir(base_url, web_path, entry)
+        if filter and re.search(filter, entry_proxy.name):
+            continue
         [file_entries, dir_entries][entry.is_dir()].append(entry_proxy)
 
     for group in (dir_entries, file_entries):
@@ -126,6 +130,8 @@ def deserialize_settings(settings_path: str) -> Settings:
     with open(settings_path, 'r') as handle:
         try:
             obj = json.load(handle)
+            if 'filter' in obj:
+                settings.filter = str(obj['filter'])
             if 'header' in obj:
                 settings.header = str(obj['header'])
             if 'footer' in obj:
@@ -191,7 +197,7 @@ def get_listing_response(
         path=web_path,
         links=links,
         entries=list_entries(
-            base_url, web_path, local_path,
+            base_url, web_path, local_path, settings.filter,
             settings.sort_style, settings.sort_dir))
 
 
