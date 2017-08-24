@@ -12,7 +12,8 @@ Simple Python file indexer for web servers.
 4. Server-side sorting!
 5. User-side sorting!
 6. Version sorting!
-7. Pretty!
+7. Image previews!
+8. Pretty!
 
 ### What it looks like
 
@@ -38,8 +39,9 @@ works recursively unless marked otherwise. Its structure is as follows:
     "footer": "Extra information to show below the file table (HTML)",
     "sort_style": "One of following: ['name', 'size', 'date']",
     "sort_dir": "One of following: ['asc', 'desc']",
-    "recursive": "Whether the file applies to subdirectories",
-    "filter": "Optional regex for hiding files by their names"
+    "recursive": "Whether the config applies to subdirectories (true/false)",
+    "filter": "Optional regex for hiding files by their names",
+    "enable_galleries": "Whether to show image galleries (true/false)"
 }
 ```
 
@@ -69,6 +71,19 @@ from multiple parent directories.
         server_name tmp.sakuya.pl;
         location ~ ^.*/$ {  # redirect only directories
             uwsgi_pass indexer;
+        }
+
+        # for image galleries
+        location ~ ^/image-resize(/.*) {
+            root /tmp/nginx-thumbs/;
+            error_page 404 = /image-resizer$1;
+        }
+
+        location ~ ^/image-resizer(/.*) {
+            uwsgi_pass indexer;
+            uwsgi_store /tmp/nginx-thumbs/image-resize/$1;
+            uwsgi_store_access user:rw group:rw all:r;
+            uwsgi_temp_path /tmp/nginx;
         }
     }
     ```

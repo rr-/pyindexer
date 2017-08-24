@@ -55,5 +55,22 @@
     </tbody>
 </table>
 
+{% if settings.enable_galleries and entries|map(attribute='is_image')|sum %}
+    <h2>Gallery</h2>
+    <ul class="gallery">
+        {%- for entry in entries %}
+            {%- if entry.is_image: %}
+                <li>
+                    <a href="{{ entry.url }}">
+                        <img src="/image-resize/{{ entry.url }}"/>
+                        <span>{{ entry.name }}</span>
+                    </a>
+                </li>
+            {%- endif %}
+        {%- endfor %}
+    </ul>
+    <div style="clear: both"></div>
+{%- endif %}
+
 {{ settings.footer }}
 {% endblock %}

@@ -1,5 +1,6 @@
 import os
 import re
+import io
 import json
 from urllib.parse import parse_qsl, quote
 from jinja2 import Environment, FileSystemLoader
@@ -7,9 +8,12 @@ from enum import Enum
 from logging import getLogger
 from typing import Mapping, List, Any, Callable
 from datetime import datetime
+from PIL import Image, ImageOps
+
 
 logger = getLogger(__name__)
 SETTINGS_FILE = 'indexer.json'
+IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
 
 
 class SortStyle(Enum):
@@ -46,18 +50,21 @@ class Settings:
         self.sort_style = SortStyle.Date
         self.sort_dir = SortDir.Descending
         self.recursive = True
+        self.enable_galleries = True
 
 
 class EntryProxy:
     def __init__(
             self, base_url: str, web_path: str, path: str,
             is_dir: bool, stat: os.stat_result) -> None:
+        _, ext = os.path.splitext(path)
         self.path = path
         self.name = os.path.basename(self.path)
         self.url = os.path.join(base_url, quote(web_path), quote(self.name))
         if is_dir:
             self.url += '/'
         self.is_dir = is_dir
+        self.is_image = ext.lower() in IMAGE_EXTENSIONS
         self.size = stat.st_size
         self.mtime = datetime.fromtimestamp(stat.st_mtime)
 
@@ -142,6 +149,8 @@ def deserialize_settings(settings_path: str) -> Settings:
                 settings.sort_dir = SortDir(obj['sort_dir'])
             if 'recursive' in obj:
                 settings.recursive = bool(obj['recursive'])
+            if 'enable_galleries' in obj:
+                settings.enable_galleries = bool(obj['enable_galleries'])
         except Exception as ex:
             logger.warning('Failed to decode %s (%s)', settings_path, ex)
         return settings
@@ -212,6 +221,21 @@ def application(
     root_path = str(env['DOCUMENT_ROOT'])
     local_path = root_path + web_path
     query_string = str(env['QUERY_STRING'])
+
+    match = re.match('/image-resizer?(/.*)', web_path)
+    if match:
+        file = match.group(1)
+        local_path = root_path + file
+        print(local_path)
+        if not os.path.exists(local_path):
+            start_response('404 Not Found', [('Content-Type', 'text/html')])
+            return [get_not_found_response(jinja_env, local_path).encode()]
+        image = Image.open(local_path)
+        thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
+        with io.BytesIO() as handle:
+            thumb.save(handle, format='jpeg')
+            start_response('200 OK', [('Content-Type', 'image/jpeg')])
+            return [handle.getvalue()]
 
     if not os.path.exists(local_path):
         start_response('404 Not Found', [('Content-Type', 'text/html')])
