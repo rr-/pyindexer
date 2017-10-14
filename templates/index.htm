@@ -33,24 +33,26 @@
 
     <tbody>
     {%- for entry in entries %}
-        <tr>
-            <td class="name">
-                {%- if entry.name == '..': %}
-                <span class="icon go-up"></span>
-                {%- elif entry.is_dir: %}
-                <span class="icon dir"></span>
+        {% if not settings.enable_galleries or settings.show_images_as_files or not entry.is_image -%}
+            <tr>
+                <td class="name">
+                    {%- if entry.name == '..': %}
+                    <span class="icon go-up"></span>
+                    {%- elif entry.is_dir: %}
+                    <span class="icon dir"></span>
+                    {%- else %}
+                    <span class="icon file"></span>
+                    {%- endif %}
+                    <a href="{{ entry.url }}">{{ entry.name }}</a>
+                </td>
+                {%- if entry.is_dir: %}
+                <td class="size">-</td>
                 {%- else %}
-                <span class="icon file"></span>
+                <td class="size">{{ entry.size | filesizeformat }}</td>
                 {%- endif %}
-                <a href="{{ entry.url }}">{{ entry.name }}</a>
-            </td>
-            {%- if entry.is_dir: %}
-            <td class="size">-</td>
-            {%- else %}
-            <td class="size">{{ entry.size | filesizeformat }}</td>
-            {%- endif %}
-            <td class="date">{{ entry.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
-        </tr>
+                <td class="date">{{ entry.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+        {%- endif %}
     {%- endfor %}
     </tbody>
 </table>

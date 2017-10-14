@@ -41,7 +41,8 @@ works recursively unless marked otherwise. Its structure is as follows:
     "sort_dir": "One of following: ['asc', 'desc']",
     "recursive": "Whether the config applies to subdirectories (true/false)",
     "filter": "Optional regex for hiding files by their names",
-    "enable_galleries": "Whether to show image galleries (true/false)"
+    "enable_galleries": "Whether to show image galleries (true/false)",
+    "show_images_as_files": "Wheter to show images in file list (true/false)"
 }
 ```
 

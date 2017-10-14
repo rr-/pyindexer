@@ -41,6 +41,8 @@ class Settings:
     # sort_style: SortStyle = SortStyle.Date
     # sort_dir: SortDir = SortDir.Descending
     # recursive: bool = True
+    # enable_galleries: bool = True
+    # show_images_as_files: bool = False
 
     def __init__(self):
         # TODO: remove this version once Python 3.6 comes out
@@ -51,6 +53,7 @@ class Settings:
         self.sort_dir = SortDir.Descending
         self.recursive = True
         self.enable_galleries = True
+        self.show_images_as_files = False
 
 
 class EntryProxy:
@@ -151,6 +154,9 @@ def deserialize_settings(settings_path: str) -> Settings:
                 settings.recursive = bool(obj['recursive'])
             if 'enable_galleries' in obj:
                 settings.enable_galleries = bool(obj['enable_galleries'])
+            if 'show_images_as_files' in obj:
+                settings.show_images_as_files = bool(
+                    obj['show_images_as_files'])
         except Exception as ex:
             logger.warning('Failed to decode %s (%s)', settings_path, ex)
         return settings
