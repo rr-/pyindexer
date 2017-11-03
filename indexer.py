@@ -236,7 +236,7 @@ def application(
         if not os.path.exists(local_path):
             start_response('404 Not Found', [('Content-Type', 'text/html')])
             return [get_not_found_response(jinja_env, local_path).encode()]
-        image = Image.open(local_path)
+        image = Image.open(local_path).convert('RGB')
         thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
         with io.BytesIO() as handle:
             thumb.save(handle, format='jpeg')
