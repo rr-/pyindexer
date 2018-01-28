@@ -2,15 +2,14 @@ import os
 import re
 import io
 import json
+import base64
+from datetime import datetime
 from urllib.parse import parse_qsl, quote
-from jinja2 import Environment, FileSystemLoader
 from enum import Enum
 from logging import getLogger
-from typing import Mapping, List, Any, Callable
-from datetime import datetime
-from PIL import Image, ImageOps
-import base64
 import webob
+from jinja2 import Environment, FileSystemLoader
+from PIL import Image, ImageOps
 
 
 logger = getLogger(__name__)
