@@ -30,27 +30,14 @@ class SortDir(Enum):
     Descending = 'desc'
 
     @staticmethod
-    def reverse(sort_dir: 'SortDir') -> 'SortDir':
+    def reverse(sort_dir):
         if sort_dir == SortDir.Ascending:
             return SortDir.Descending
         return SortDir.Ascending
 
 
 class Settings:
-    # TODO: use this version once Python 3.6 comes out
-    # filter: str = ''
-    # header: str = ''
-    # footer: str = ''
-    # sort_style: SortStyle = SortStyle.Date
-    # sort_dir: SortDir = SortDir.Descending
-    # recursive: bool = True
-    # enable_galleries: bool = True
-    # show_images_as_files: bool = False
-    # user: str = ''
-    # password: str = ''
-
     def __init__(self):
-        # TODO: remove this version once Python 3.6 comes out
         self.filter = ''
         self.header = ''
         self.footer = ''
@@ -64,9 +51,7 @@ class Settings:
 
 
 class EntryProxy:
-    def __init__(
-            self, base_url: str, web_path: str, path: str,
-            is_dir: bool, stat: os.stat_result) -> None:
+    def __init__(self, base_url, web_path, path, is_dir, stat):
         _, ext = os.path.splitext(path)
         self.path = path
         self.name = os.path.basename(self.path)
@@ -79,12 +64,12 @@ class EntryProxy:
         self.mtime = datetime.fromtimestamp(stat.st_mtime)
 
     @staticmethod
-    def from_scandir(base_url: str, web_path: str, entry: Any):
+    def from_scandir(base_url, web_path, entry):
         return EntryProxy(
             base_url, web_path, entry.path, entry.is_dir(), entry.stat())
 
     @staticmethod
-    def from_path(base_url: str, web_path: str, local_path: str):
+    def from_path(base_url, web_path, local_path):
         return EntryProxy(
             base_url, web_path, local_path,
             os.path.isdir(local_path),
@@ -92,8 +77,7 @@ class EntryProxy:
 
 
 def list_entries(
-        base_url: str, web_path: str, local_path: str, filter: str,
-        sort_style: SortStyle, sort_dir: SortDir) -> List[EntryProxy]:
+        base_url, web_path, local_path, filter, sort_style, sort_dir):
     def name_sort_func(entry):
         return [
             int(text) if text.isdigit() else text.lower()
@@ -111,9 +95,8 @@ def list_entries(
         SortStyle.Size: size_sort_func,
     }
 
-    # TODO: Use proper type annotations when Python 3.6 comes out
-    dir_entries = []  # type: List[EntryProxy]
-    file_entries = []  # type: List[EntryProxy]
+    dir_entries = []
+    file_entries = []
     for entry in os.scandir(local_path):
         if entry.name == SETTINGS_FILE:
             continue
@@ -138,7 +121,7 @@ def list_entries(
     return dir_entries + file_entries
 
 
-def deserialize_settings(settings_path: str) -> Settings:
+def deserialize_settings(settings_path):
     settings = Settings()
     with open(settings_path, 'r') as handle:
         try:
@@ -169,7 +152,7 @@ def deserialize_settings(settings_path: str) -> Settings:
         return settings
 
 
-def get_settings(local_path: str, root_path: str) -> Settings:
+def get_settings(local_path, root_path):
     current_path = local_path
     iterations = 0
     while current_path.startswith(root_path):
