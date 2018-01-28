@@ -9,10 +9,12 @@ from logging import getLogger
 from typing import Mapping, List, Any, Callable
 from datetime import datetime
 from PIL import Image, ImageOps
+import webob
 
 
 logger = getLogger(__name__)
 SETTINGS_FILE = 'indexer.json'
+IMAGE_RESIZER_REGEX = re.compile('/image-resizer?(/.*)')
 IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
 
 
@@ -82,10 +84,6 @@ class EntryProxy:
             base_url, web_path, local_path,
             os.path.isdir(local_path),
             os.stat(local_path))
-
-
-def get_not_found_response(jinja_env: Any, web_path: str) -> str:
-    return jinja_env.get_template('not-found.htm').render(path=web_path)
 
 
 def list_entries(
@@ -177,85 +175,111 @@ def get_settings(local_path: str, root_path: str) -> Settings:
     return Settings()
 
 
-def update_settings_from_query_string(settings: Settings, query_string: str):
-    try:
-        obj = dict(parse_qsl(query_string))
-        if 'sort_style' in obj:
-            settings.sort_style = SortStyle(obj['sort_style'])
-        if 'sort_dir' in obj:
-            settings.sort_dir = SortDir(obj['sort_dir'])
-    except:
-        pass
+class Application:
+    def __init__(self):
+        templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        self._jinja_env = Environment(loader=FileSystemLoader(templates_dir))
 
+    def __call__(self, env, start_response):
+        request = webob.Request(env)
+        setattr(request, 'root_path', str(env['DOCUMENT_ROOT']))
+        setattr(request, 'local_path', request.root_path + request.path_info)
 
-def get_listing_response(
-        jinja_env: Any,
-        base_url: str,
-        local_path: str,
-        web_path: str,
-        settings: Settings) -> str:
+        response = self._try_respond_image_resizer(
+            env, start_response, request)
+        if response:
+            return response
 
-    links = []
-    link = '/'
-    for group in [f for f in web_path.split('/') if f] + ['']:
-        links.append((link, group))
-        link += '%s/' % group
+        if not os.path.exists(request.local_path):
+            return self._respond_not_found(env, start_response, request)
 
-    return jinja_env.get_template('index.htm').render(
-        SortDir=SortDir,
-        sort_styles=(
-            (SortStyle.Name, 'name'),
-            (SortStyle.Size, 'size'),
-            (SortStyle.Date, 'date'),
-        ),
-        settings=settings,
-        path=web_path,
-        links=links,
-        entries=list_entries(
-            base_url, web_path, local_path, settings.filter,
-            settings.sort_style, settings.sort_dir))
+        if not os.path.isdir(request.local_path):
+            return self._respond_file(env, start_response, request)
 
+        return self._respond_listing(env, start_response, request)
 
-def application(
-        env: Mapping[str, object], start_response: Callable) -> List[bytes]:
+    def _respond_file(self, env, start_response, request):
+        response = webob.Response()
+        response.content_type = 'application/octet-stream'
+        with open(request.local_path, 'rb') as handle:
+            response.body = handle.read()
+        return response(env, start_response)
 
-    templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
-    jinja_env = Environment(loader=FileSystemLoader(templates_dir))
+    def _respond_not_found(self, env, start_response, request):
+        response = webob.Response()
+        response.status = 404
+        response.content_type = 'text/html'
+        response.text = (
+            self._jinja_env
+            .get_template('not-found.htm')
+            .render(path=request.path_info))
+        return response(env, start_response)
 
-    base_url = '%s://%s/' % (env['REQUEST_SCHEME'], env['HTTP_HOST'])
-    web_path = str(env['PATH_INFO']).encode('latin-1').decode('utf-8')
-    root_path = str(env['DOCUMENT_ROOT'])
-    local_path = root_path + web_path
-    query_string = str(env['QUERY_STRING'])
+    def _respond_listing(self, env, start_response, request):
+        settings = get_settings(request.local_path, request.root_path)
 
-    match = re.match('/image-resizer?(/.*)', web_path)
-    if match:
-        file = match.group(1)
-        local_path = root_path + file
-        print(local_path)
+        try:
+            obj = dict(parse_qsl(request.query_string))
+            if 'sort_style' in obj:
+                settings.sort_style = SortStyle(obj['sort_style'])
+            if 'sort_dir' in obj:
+                settings.sort_dir = SortDir(obj['sort_dir'])
+        except:
+            pass
+
+        links = []
+        link = '/'
+        for group in [f for f in request.path_info.split('/') if f] + ['']:
+            links.append((link, group))
+            link += '%s/' % group
+
+        response = webob.Response()
+        response.content_type = 'text/html'
+        response.text = (
+            self._jinja_env
+            .get_template('index.htm')
+            .render(
+                SortDir=SortDir,
+                sort_styles=(
+                    (SortStyle.Name, 'name'),
+                    (SortStyle.Size, 'size'),
+                    (SortStyle.Date, 'date'),
+                ),
+                settings=settings,
+                path=request.path_info,
+                links=links,
+                entries=list_entries(
+                    request.path_url,
+                    request.path_info,
+                    request.local_path,
+                    settings.filter,
+                    settings.sort_style,
+                    settings.sort_dir)))
+        return response(env, start_response)
+
+    def _try_respond_image_resizer(self, env, start_response, request):
+        match = IMAGE_RESIZER_REGEX.match(request.path_info)
+        if not match:
+            return None
+
+        local_path = request.root_path + match.group(1)
         if not os.path.exists(local_path):
-            start_response('404 Not Found', [('Content-Type', 'text/html')])
-            return [get_not_found_response(jinja_env, local_path).encode()]
+            response = webob.Response()
+            response.status = 404
+            response.content_type = 'text/html'
+            response.text = (
+                self._jinja_env
+                .get_template('not-found.htm')
+                .render(path=local_path))
+            return response(env, start_response)
         image = Image.open(local_path).convert('RGB')
         thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
         with io.BytesIO() as handle:
             thumb.save(handle, format='jpeg')
-            start_response('200 OK', [('Content-Type', 'image/jpeg')])
-            return [handle.getvalue()]
+            response = webob.Response()
+            response.content_type = 'image/jpeg'
+            response.body = handle.getvalue()
+            return response(env, start_response)
 
-    if not os.path.exists(local_path):
-        start_response('404 Not Found', [('Content-Type', 'text/html')])
-        return [get_not_found_response(jinja_env, web_path).encode()]
 
-    if not os.path.isdir(local_path):
-        start_response(
-            '200 OK', [('Content-Type', 'application/octet-stream')])
-        with open(local_path, 'rb') as handle:
-            return [handle.read()]
-
-    settings = get_settings(local_path, root_path)
-    update_settings_from_query_string(settings, query_string)
-
-    start_response('200 OK', [('Content-Type', 'text/html')])
-    return [get_listing_response(
-        jinja_env, base_url, local_path, web_path, settings).encode()]
+application = Application()
