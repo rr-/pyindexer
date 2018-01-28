@@ -13,7 +13,8 @@ Simple Python file indexer for web servers.
 5. User-side sorting!
 6. Version sorting!
 7. Image previews!
-8. Pretty!
+8. Basic authentication!
+9. Pretty!
 
 ### What it looks like
 
@@ -42,7 +43,9 @@ works recursively unless marked otherwise. Its structure is as follows:
     "recursive": "Whether the config applies to subdirectories (true/false)",
     "filter": "Optional regex for hiding files by their names",
     "enable_galleries": "Whether to show image galleries (true/false)",
-    "show_images_as_files": "Wheter to show images in file list (true/false)"
+    "show_images_as_files": "Wheter to show images in file list (true/false)",
+    "user": "User for basic authentication",
+    "password": "Password for basic authentication",
 }
 ```
 

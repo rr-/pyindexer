@@ -9,6 +9,7 @@ from logging import getLogger
 from typing import Mapping, List, Any, Callable
 from datetime import datetime
 from PIL import Image, ImageOps
+import base64
 import webob
 
 
@@ -45,6 +46,8 @@ class Settings:
     # recursive: bool = True
     # enable_galleries: bool = True
     # show_images_as_files: bool = False
+    # user: str = ''
+    # password: str = ''
 
     def __init__(self):
         # TODO: remove this version once Python 3.6 comes out
@@ -56,6 +59,8 @@ class Settings:
         self.recursive = True
         self.enable_galleries = True
         self.show_images_as_files = False
+        self.user = ''
+        self.password = ''
 
 
 class EntryProxy:
@@ -155,6 +160,10 @@ def deserialize_settings(settings_path: str) -> Settings:
             if 'show_images_as_files' in obj:
                 settings.show_images_as_files = bool(
                     obj['show_images_as_files'])
+            if 'user' in obj:
+                settings.user = str(obj['user'])
+            if 'password' in obj:
+                settings.password = str(obj['password'])
         except Exception as ex:
             logger.warning('Failed to decode %s (%s)', settings_path, ex)
         return settings
@@ -196,7 +205,27 @@ class Application:
         if not os.path.isdir(request.local_path):
             return self._respond_file(env, start_response, request)
 
-        return self._respond_listing(env, start_response, request)
+        settings = get_settings(request.local_path, request.root_path)
+        if not self._is_authorized(request, settings):
+            return self._respond_login(env, start_response)
+
+        return self._respond_listing(env, start_response, request, settings)
+
+    def _is_authorized(self, request, settings):
+        if settings.user or settings.password:
+            auth = request.authorization
+            if auth and auth[0] == 'Basic':
+                credentials = base64.b64decode(auth[1]).decode('UTF-8')
+                user, password = credentials.split(':', 1)
+                return user == settings.user and password == settings.password
+            return False
+        return True
+
+    def _respond_login(self, env, start_response):
+        response = webob.Response()
+        response.status = 401
+        response.www_authenticate = ('Basic', {'realm': 'Protected'})
+        return response(env, start_response)
 
     def _respond_file(self, env, start_response, request):
         response = webob.Response()
@@ -215,9 +244,7 @@ class Application:
             .render(path=request.path_info))
         return response(env, start_response)
 
-    def _respond_listing(self, env, start_response, request):
-        settings = get_settings(request.local_path, request.root_path)
-
+    def _respond_listing(self, env, start_response, request, settings):
         try:
             obj = dict(parse_qsl(request.query_string))
             if 'sort_style' in obj:
