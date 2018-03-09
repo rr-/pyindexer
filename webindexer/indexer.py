@@ -25,7 +25,7 @@ THUMBNAIL_REGEX = re.compile('/.thumb(/.*)')
 IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
 
 
-templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
+templates_dir = os.path.join(os.path.dirname(__file__), 'data')
 jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(templates_dir))
 
 

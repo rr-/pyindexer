@@ -4,7 +4,7 @@ After=syslog.target network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/uwsgi --wsgi-file /home/rr-/src/indexer/indexer.py --socket 127.0.0.1:40001
+ExecStart=%h/.local/bin/uwsgi -s 127.0.0.1:40001 -w webindexer
 Restart=on-abort
 
 [Install]

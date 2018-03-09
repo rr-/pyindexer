@@ -56,11 +56,9 @@ from multiple parent directories.
 
 ### Example deployment with nginx, uwsgi and systemd
 
-1. Install dependencies (`wsgi` for integration with nginx and `jinja` for
-   sane HTML rendering) with `pip`: `pip install -r requirements.txt`.
-2. Copy `indexer.service` to `~/.config/systemd/user`.
-3. Edit `~/.config/systemd/user/indexer.service` and change the path to the
-   `indexer.py` script.
+1. Install `webindexer` with `pip`: `pip install --user .`.
+2. Install `uwsgi` with `pip`: `pip install --user uwsgi`.
+3. Copy `indexer.service` to `~/.config/systemd/user`.
 4. Run `systemctl --user daemon-reload` to make systemd see the above file.
 5. Run `systemctl --user enable indexer` to start indexer service at boot.
 6. Run `systemctl --user start indexer` to run indexer now.
