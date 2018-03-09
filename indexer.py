@@ -1,26 +1,32 @@
 import os
+import logging
 import re
-import io
 import json
 import mimetypes
 
-from base64 import b64encode,  b64decode
-from tempfile import gettempdir
-from datetime import datetime
-from urllib.parse import parse_qsl, quote
 from enum import Enum
-from logging import getLogger
+from datetime import datetime
+from tempfile import gettempdir
+from base64 import b64encode, b64decode
+from urllib.parse import parse_qsl, quote
 
-import webob
+import jinja2
 
-from jinja2 import Environment, FileSystemLoader
-from PIL import Image, ImageOps
+from PIL import Image
+from PIL import ImageOps
+from pyramid.config import Configurator
+from pyramid.response import Response
+from pyramid.response import FileResponse
 
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 SETTINGS_FILE = 'indexer.json'
 THUMBNAIL_REGEX = re.compile('/.thumb(/.*)')
 IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
+
+
+templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
+jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(templates_dir))
 
 
 class SortStyle(Enum):
@@ -171,195 +177,132 @@ def get_settings(local_path, root_path):
     return Settings()
 
 
-class FileIterable(object):
-    def __init__(self, filename, start=None, stop=None):
-        self.filename = filename
-        self.start = start
-        self.stop = stop
-
-    def __iter__(self):
-        return FileIterator(self.filename, self.start, self.stop)
-
-    def app_iter_range(self, start, stop):
-        return self.__class__(self.filename, start, stop)
-
-
-class FileIterator(object):
-    chunk_size = 4096
-
-    def __init__(self, filename, start, stop):
-        self.filename = filename
-        self.fileobj = open(self.filename, 'rb')
-        if start:
-            self.fileobj.seek(start)
-        if stop is not None:
-            self.length = stop - start
-        else:
-            self.length = None
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.length is not None and self.length <= 0:
-            raise StopIteration
-        chunk = self.fileobj.read(self.chunk_size)
-        if not chunk:
-            raise StopIteration
-        if self.length is not None:
-            self.length -= len(chunk)
-            if self.length < 0:
-                chunk = chunk[:self.length]
-        return chunk
-
-
 def get_mimetype(filename):
-    type, encoding = mimetypes.guess_type(filename)
-    return type or 'application/octet-stream'
+    mime_type, _encoding = mimetypes.guess_type(filename)
+    return mime_type or 'application/octet-stream'
 
 
-def make_response(filename):
-    res = webob.Response(
-        content_type=get_mimetype(filename),
-        conditional_response=True)
-    res.app_iter = FileIterable(filename)
-    res.content_length = os.path.getsize(filename)
-    res.last_modified = os.path.getmtime(filename)
-    res.etag = '%s-%s-%s' % (
-        os.path.getmtime(filename),
-        os.path.getsize(filename),
-        hash(filename))
-    return res
+def is_authorized(request, settings):
+    if settings.user or settings.password:
+        auth = request.authorization
+        if auth and auth[0] == 'Basic':
+            credentials = b64decode(auth[1]).decode('UTF-8')
+            user, password = credentials.split(':', 1)
+            return user == settings.user and password == settings.password
+        return False
+    return True
 
 
-class Application:
-    def __init__(self):
-        templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
-        self._jinja_env = Environment(loader=FileSystemLoader(templates_dir))
-
-    def __call__(self, env, start_response):
-        request = webob.Request(env)
-        setattr(request, 'root_path', str(env['DOCUMENT_ROOT']))
-        setattr(request, 'local_path', request.root_path + request.path_info)
-
-        response = self._try_respond_image_resizer(
-            env, start_response, request)
-        if response:
-            return response
-
-        if not os.path.exists(request.local_path):
-            return self._respond_not_found(env, start_response, request)
-
-        if not os.path.isdir(request.local_path):
-            return self._respond_file(env, start_response, request)
-
-        settings = get_settings(request.local_path, request.root_path)
-        if not self._is_authorized(request, settings):
-            return self._respond_login(env, start_response)
-
-        return self._respond_listing(env, start_response, request, settings)
-
-    def _is_authorized(self, request, settings):
-        if settings.user or settings.password:
-            auth = request.authorization
-            if auth and auth[0] == 'Basic':
-                credentials = b64decode(auth[1]).decode('UTF-8')
-                user, password = credentials.split(':', 1)
-                return user == settings.user and password == settings.password
-            return False
-        return True
-
-    def _respond_login(self, env, start_response):
-        response = webob.Response()
-        response.status = 401
-        response.www_authenticate = ('Basic', {'realm': 'Protected'})
-        return response(env, start_response)
-
-    def _respond_file(self, env, start_response, request):
-        response = make_response(request.local_path)
-        return response(env, start_response)
-
-    def _respond_not_found(self, env, start_response, request):
-        response = webob.Response()
-        response.status = 404
-        response.content_type = 'text/html'
-        response.text = (
-            self._jinja_env
-            .get_template('not-found.htm')
-            .render(path=request.path_info))
-        return response(env, start_response)
-
-    def _respond_listing(self, env, start_response, request, settings):
-        try:
-            obj = dict(parse_qsl(request.query_string))
-            if 'sort_style' in obj:
-                settings.sort_style = SortStyle(obj['sort_style'])
-            if 'sort_dir' in obj:
-                settings.sort_dir = SortDir(obj['sort_dir'])
-        except:
-            pass
-
-        links = []
-        link = '/'
-        for group in [f for f in request.path_info.split('/') if f] + ['']:
-            links.append((link, group))
-            link += '%s/' % group
-
-        response = webob.Response()
-        response.content_type = 'text/html'
-        response.text = (
-            self._jinja_env
-            .get_template('index.htm')
-            .render(
-                SortDir=SortDir,
-                sort_styles=(
-                    (SortStyle.Name, 'name'),
-                    (SortStyle.Size, 'size'),
-                    (SortStyle.Date, 'date'),
-                ),
-                settings=settings,
-                path=request.path_info,
-                links=links,
-                entries=list_entries(
-                    request.path_url,
-                    request.path_info,
-                    request.local_path,
-                    settings.filter,
-                    settings.sort_style,
-                    settings.sort_dir)))
-        return response(env, start_response)
-
-    def _try_respond_image_resizer(self, env, start_response, request):
-        match = THUMBNAIL_REGEX.match(request.path_info)
-        if not match:
-            return None
-
-        local_path = request.root_path + match.group(1)
-
-        if not os.path.exists(local_path):
-            response = webob.Response()
-            response.status = 404
-            response.content_type = 'text/html'
-            response.text = (
-                self._jinja_env
-                .get_template('not-found.htm')
-                .render(path=local_path))
-            return response(env, start_response)
-
-        thumb_path = os.path.join(
-            gettempdir(),
-            'indexer-thumbs',
-            b64encode(local_path.encode()).decode() + '.jpg')
-        os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
-
-        if not os.path.exists(thumb_path):
-            image = Image.open(local_path).convert('RGB')
-            thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
-            with open(thumb_path, 'wb') as handle:
-                thumb.save(handle, format='jpeg')
-
-        response = make_response(thumb_path)
-        return response(env, start_response)
+def respond_login():
+    response = Response()
+    response.status = 401
+    response.www_authenticate = ('Basic', {'realm': 'Protected'})
+    return response
 
 
-application = Application()
+def respond_not_found(request):
+    response = Response()
+    response.status = 404
+    response.content_type = 'text/html'
+    response.text = (
+        jinja_env
+        .get_template('not-found.htm')
+        .render(path=request.path_info))
+    return response
+
+
+def respond_listing(request, local_path, settings):
+    try:
+        obj = dict(parse_qsl(request.query_string))
+        if 'sort_style' in obj:
+            settings.sort_style = SortStyle(obj['sort_style'])
+        if 'sort_dir' in obj:
+            settings.sort_dir = SortDir(obj['sort_dir'])
+    except Exception:
+        pass
+
+    links = []
+    link = '/'
+    for group in [f for f in request.path_info.split('/') if f] + ['']:
+        links.append((link, group))
+        link += '%s/' % group
+
+    response = Response()
+    response.content_type = 'text/html'
+    response.text = (
+        jinja_env
+        .get_template('index.htm')
+        .render(
+            SortDir=SortDir,
+            sort_styles=(
+                (SortStyle.Name, 'name'),
+                (SortStyle.Size, 'size'),
+                (SortStyle.Date, 'date'),
+            ),
+            settings=settings,
+            path=request.path_info,
+            links=links,
+            entries=list_entries(
+                request.path_url,
+                request.path_info,
+                local_path,
+                settings.filter,
+                settings.sort_style,
+                settings.sort_dir)))
+    return response
+
+
+def try_respond_image_resizer(root_path, request):
+    match = THUMBNAIL_REGEX.match(request.path_info)
+    if not match:
+        return None
+
+    local_path = root_path + match.group(1)
+
+    if not os.path.exists(local_path):
+        return respond_not_found(request)
+
+    thumb_path = os.path.join(
+        gettempdir(),
+        'indexer-thumbs',
+        b64encode(local_path.encode()).decode() + '.jpg')
+    os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
+
+    if not os.path.exists(thumb_path):
+        image = Image.open(local_path).convert('RGB')
+        thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
+        with open(thumb_path, 'wb') as handle:
+            thumb.save(handle, format='jpeg')
+
+    return FileResponse(thumb_path, content_type='image/jpeg')
+
+
+def catch_all_route(request):
+    root_path = request.environ['DOCUMENT_ROOT']
+    local_path = root_path + request.path_info
+    settings = get_settings(local_path, root_path)
+
+    response = try_respond_image_resizer(root_path, request)
+    if response:
+        return response
+
+    if not os.path.exists(local_path):
+        return respond_not_found(request)
+
+    if not os.path.isdir(local_path):
+        return FileResponse(local_path, content_type=get_mimetype(local_path))
+
+    if not is_authorized(request, settings):
+        return respond_login()
+
+    return respond_listing(request, local_path, settings)
+
+
+def make_wsgi_app():
+    config = Configurator()
+    config.add_route('catch-all', '/*subpath')
+    config.add_view(catch_all_route, route_name='catch-all')
+    return config.make_wsgi_app()
+
+
+application = make_wsgi_app()
