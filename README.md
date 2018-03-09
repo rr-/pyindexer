@@ -76,7 +76,7 @@ from multiple parent directories.
         location ~ ^.*/$ {  # redirect only directories
             uwsgi_pass indexer;
         }
-        location ~ ^/.thumb/ { # for image galleries
+        location ~ ^/.thumb/ {  # for image galleries
             uwsgi_pass indexer;
         }
     }
