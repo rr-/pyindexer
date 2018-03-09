@@ -2,19 +2,23 @@ import os
 import re
 import io
 import json
-import base64
+
+from base64 import b64encode,  b64decode
+from tempfile import gettempdir
 from datetime import datetime
 from urllib.parse import parse_qsl, quote
 from enum import Enum
 from logging import getLogger
+
 import webob
+
 from jinja2 import Environment, FileSystemLoader
 from PIL import Image, ImageOps
 
 
 logger = getLogger(__name__)
 SETTINGS_FILE = 'indexer.json'
-IMAGE_RESIZER_REGEX = re.compile('/image-resizer?(/.*)')
+THUMBNAIL_REGEX = re.compile('/.thumb(/.*)')
 IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
 
 
@@ -197,7 +201,7 @@ class Application:
         if settings.user or settings.password:
             auth = request.authorization
             if auth and auth[0] == 'Basic':
-                credentials = base64.b64decode(auth[1]).decode('UTF-8')
+                credentials = b64decode(auth[1]).decode('UTF-8')
                 user, password = credentials.split(':', 1)
                 return user == settings.user and password == settings.password
             return False
@@ -267,11 +271,12 @@ class Application:
         return response(env, start_response)
 
     def _try_respond_image_resizer(self, env, start_response, request):
-        match = IMAGE_RESIZER_REGEX.match(request.path_info)
+        match = THUMBNAIL_REGEX.match(request.path_info)
         if not match:
             return None
 
         local_path = request.root_path + match.group(1)
+
         if not os.path.exists(local_path):
             response = webob.Response()
             response.status = 404
@@ -281,14 +286,24 @@ class Application:
                 .get_template('not-found.htm')
                 .render(path=local_path))
             return response(env, start_response)
-        image = Image.open(local_path).convert('RGB')
-        thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
-        with io.BytesIO() as handle:
-            thumb.save(handle, format='jpeg')
-            response = webob.Response()
-            response.content_type = 'image/jpeg'
-            response.body = handle.getvalue()
-            return response(env, start_response)
+
+        thumb_path = os.path.join(
+            gettempdir(),
+            'indexer-thumbs',
+            b64encode(local_path.encode()).decode() + '.jpg')
+        os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
+
+        if not os.path.exists(thumb_path):
+            image = Image.open(local_path).convert('RGB')
+            thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
+            with open(thumb_path, 'wb') as handle:
+                thumb.save(handle, format='jpeg')
+
+        response = webob.Response()
+        response.content_type = 'image/jpeg'
+        with open(thumb_path, 'rb') as handle:
+            response.body = handle.read()
+        return response(env, start_response)
 
 
 application = Application()

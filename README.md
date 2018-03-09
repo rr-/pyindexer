@@ -76,18 +76,8 @@ from multiple parent directories.
         location ~ ^.*/$ {  # redirect only directories
             uwsgi_pass indexer;
         }
-
-        # for image galleries
-        location ~ ^/image-resize(/.*) {
-            root /tmp/nginx-thumbs/;
-            error_page 404 = /image-resizer$1;
-        }
-
-        location ~ ^/image-resizer(/.*) {
+        location ~ ^/.thumb/ { # for image galleries
             uwsgi_pass indexer;
-            uwsgi_store /tmp/nginx-thumbs/image-resize/$1;
-            uwsgi_store_access user:rw group:rw all:r;
-            uwsgi_temp_path /tmp/nginx;
         }
     }
     ```
