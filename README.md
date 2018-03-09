@@ -45,7 +45,7 @@ works recursively unless marked otherwise. Its structure is as follows:
     "enable_galleries": "Whether to show image galleries (true/false)",
     "show_images_as_files": "Whether to show images in file list (true/false)",
     "user": "User for basic authentication",
-    "password": "Password for basic authentication",
+    "password": "Password for basic authentication"
 }
 ```
 
