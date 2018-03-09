@@ -2,6 +2,7 @@ import os
 import re
 import io
 import json
+import mimetypes
 
 from base64 import b64encode,  b64decode
 from tempfile import gettempdir
@@ -170,6 +171,67 @@ def get_settings(local_path, root_path):
     return Settings()
 
 
+class FileIterable(object):
+    def __init__(self, filename, start=None, stop=None):
+        self.filename = filename
+        self.start = start
+        self.stop = stop
+
+    def __iter__(self):
+        return FileIterator(self.filename, self.start, self.stop)
+
+    def app_iter_range(self, start, stop):
+        return self.__class__(self.filename, start, stop)
+
+
+class FileIterator(object):
+    chunk_size = 4096
+
+    def __init__(self, filename, start, stop):
+        self.filename = filename
+        self.fileobj = open(self.filename, 'rb')
+        if start:
+            self.fileobj.seek(start)
+        if stop is not None:
+            self.length = stop - start
+        else:
+            self.length = None
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.length is not None and self.length <= 0:
+            raise StopIteration
+        chunk = self.fileobj.read(self.chunk_size)
+        if not chunk:
+            raise StopIteration
+        if self.length is not None:
+            self.length -= len(chunk)
+            if self.length < 0:
+                chunk = chunk[:self.length]
+        return chunk
+
+
+def get_mimetype(filename):
+    type, encoding = mimetypes.guess_type(filename)
+    return type or 'application/octet-stream'
+
+
+def make_response(filename):
+    res = webob.Response(
+        content_type=get_mimetype(filename),
+        conditional_response=True)
+    res.app_iter = FileIterable(filename)
+    res.content_length = os.path.getsize(filename)
+    res.last_modified = os.path.getmtime(filename)
+    res.etag = '%s-%s-%s' % (
+        os.path.getmtime(filename),
+        os.path.getsize(filename),
+        hash(filename))
+    return res
+
+
 class Application:
     def __init__(self):
         templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
@@ -214,10 +276,7 @@ class Application:
         return response(env, start_response)
 
     def _respond_file(self, env, start_response, request):
-        response = webob.Response()
-        response.content_type = 'application/octet-stream'
-        with open(request.local_path, 'rb') as handle:
-            response.body = handle.read()
+        response = make_response(request.local_path)
         return response(env, start_response)
 
     def _respond_not_found(self, env, start_response, request):
@@ -299,10 +358,7 @@ class Application:
             with open(thumb_path, 'wb') as handle:
                 thumb.save(handle, format='jpeg')
 
-        response = webob.Response()
-        response.content_type = 'image/jpeg'
-        with open(thumb_path, 'rb') as handle:
-            response.body = handle.read()
+        response = make_response(thumb_path)
         return response(env, start_response)
 
 
