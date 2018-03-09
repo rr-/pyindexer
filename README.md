@@ -70,7 +70,7 @@ from multiple parent directories.
     }
     server {
         include uwsgi_params;  # should come with your distribution
-        server_name tmp.sakuya.pl;
+        server_name example.com;
         location ~ ^.*/$ {  # redirect only directories
             uwsgi_pass indexer;
         }
