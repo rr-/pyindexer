@@ -14,7 +14,8 @@ Simple Python file indexer for web servers.
 6. Version sorting!
 7. Image previews!
 8. Basic authentication!
-9. Pretty!
+9. Basic multiple user scenario!
+10. Pretty!
 
 ### What it looks like
 
@@ -44,13 +45,20 @@ works recursively unless marked otherwise. Its structure is as follows:
     "filter": "Optional regex for hiding files by their names",
     "enable_galleries": "Whether to show image galleries (true/false)",
     "show_images_as_files": "Whether to show images in file list (true/false)",
-    "auth": ["user1:password1", "user2":"password2"]
+    "auth": ["user1:password1", "user2":"password2"],
+    "auth_filtering": "Whether to use extended file attribute to control which
+    user can see which files (true/false)"
 }
 ```
 
 Note that the engine looks for `indexer.json` in parent directories and *stops
 on the first file found*. It does *not* merge settings
 from multiple parent directories.
+
+`auth_filtering` looks for `access` extended file attribute for each
+indexed file/directory. The field should contain user names eligible to access
+given file/directory, separated with `:`. If the field is empty, the
+file/directory can be accessed by every user.
 
 
 ### Example deployment with nginx, uwsgi and systemd

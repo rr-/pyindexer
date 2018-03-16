@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 import mimetypes
 from datetime import datetime
 from tempfile import gettempdir
@@ -20,6 +21,7 @@ from webindexer.settings import Credentials
 from webindexer.settings import deserialize_settings
 
 
+logger = logging.getLogger(__name__)
 SETTINGS_FILE = 'indexer.json'
 THUMBNAIL_REGEX = re.compile('/.thumb(/.*)')
 IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
@@ -55,8 +57,7 @@ class EntryProxy:
             os.stat(local_path))
 
 
-def list_entries(
-        base_url, web_path, local_path, filter, sort_style, sort_dir):
+def list_entries(base_url, web_path, local_path, settings, credentials):
     def name_sort_func(entry):
         return [
             int(text) if text.isdigit() else text.lower()
@@ -79,18 +80,37 @@ def list_entries(
     for entry in os.scandir(local_path):
         if entry.name == SETTINGS_FILE:
             continue
+
         try:
             entry.stat()
         except FileNotFoundError:
             continue
+
         entry_proxy = EntryProxy.from_scandir(base_url, web_path, entry)
-        if filter and re.search(filter, entry_proxy.name):
+
+        if settings.filter and re.search(settings.filter, entry_proxy.name):
             continue
+
+        if settings.auth_filtering:
+            try:
+                if 'user.access' in os.listxattr(entry_proxy.path):
+                    valid_users = (
+                        os.getxattr(entry_proxy.path, 'user.access')
+                        .decode()
+                        .split(':'))
+                else:
+                    valid_users = []
+            except OSError as ex:
+                logger.error(ex)
+                continue
+            if valid_users and credentials.user not in valid_users:
+                continue
+
         [file_entries, dir_entries][entry.is_dir()].append(entry_proxy)
 
     for group in (dir_entries, file_entries):
-        group.sort(key=sort_funcs[sort_style])
-        if sort_dir == SortDir.Descending:
+        group.sort(key=sort_funcs[settings.sort_style])
+        if settings.sort_dir == SortDir.Descending:
             group.reverse()
 
     dir_entries.insert(
@@ -120,14 +140,17 @@ def get_mimetype(filename):
     return mime_type or 'application/octet-stream'
 
 
+def get_credentials(request):
+    auth = request.authorization
+    if auth and auth[0] == 'Basic':
+        user, password = b64decode(auth[1]).decode('utf-8').split(':', 1)
+        return Credentials(user, password)
+    return None
+
+
 def is_authorized(request, settings):
     if settings.auth:
-        auth = request.authorization
-        if auth and auth[0] == 'Basic':
-            user, password = b64decode(auth[1]).decode('utf-8').split(':', 1)
-            credentials = Credentials(user, password)
-            return credentials in settings.auth
-        return False
+        return get_credentials(request) in settings.auth
     return True
 
 
@@ -165,6 +188,8 @@ def respond_listing(request, local_path, settings):
         links.append((link, group))
         link += '%s/' % group
 
+    credentials = get_credentials(request)
+
     response = Response()
     response.content_type = 'text/html'
     response.text = (
@@ -184,9 +209,8 @@ def respond_listing(request, local_path, settings):
                 request.path_url,
                 request.path_info,
                 local_path,
-                settings.filter,
-                settings.sort_style,
-                settings.sort_dir)))
+                settings,
+                credentials)))
     return response
 
 

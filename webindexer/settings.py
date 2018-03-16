@@ -36,6 +36,7 @@ class Settings:
         self.enable_galleries = True
         self.show_images_as_files = False
         self.auth = []
+        self.auth_filtering = False
 
 
 def deserialize_settings(settings_path):
@@ -69,6 +70,8 @@ def deserialize_settings(settings_path):
                     for term in list(obj['auth'])
                 )
             ]
+        if 'auth_filtering' in obj:
+            settings.auth_filtering = bool(obj['auth_filtering'])
     except Exception as ex:
         logger.warning('Failed to decode %s (%s)', settings_path, ex)
     return settings
