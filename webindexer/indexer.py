@@ -4,6 +4,7 @@ import re
 import json
 import mimetypes
 
+from collections import namedtuple
 from enum import Enum
 from datetime import datetime
 from tempfile import gettempdir
@@ -56,8 +57,10 @@ class Settings:
         self.recursive = True
         self.enable_galleries = True
         self.show_images_as_files = False
-        self.user = ''
-        self.password = ''
+        self.auth = []
+
+
+Credentials = namedtuple('Credentials', ['user', 'password'])
 
 
 class EntryProxy:
@@ -153,10 +156,14 @@ def deserialize_settings(settings_path):
             if 'show_images_as_files' in obj:
                 settings.show_images_as_files = bool(
                     obj['show_images_as_files'])
-            if 'user' in obj:
-                settings.user = str(obj['user'])
-            if 'password' in obj:
-                settings.password = str(obj['password'])
+            if 'auth' in obj:
+                settings.auth = [
+                    Credentials(user, password)
+                    for user, password in (
+                        str(term).split(':', 1)
+                        for term in list(obj['auth'])
+                    )
+                ]
         except Exception as ex:
             logger.warning('Failed to decode %s (%s)', settings_path, ex)
         return settings
@@ -183,12 +190,12 @@ def get_mimetype(filename):
 
 
 def is_authorized(request, settings):
-    if settings.user or settings.password:
+    if settings.auth:
         auth = request.authorization
         if auth and auth[0] == 'Basic':
-            credentials = b64decode(auth[1]).decode('UTF-8')
-            user, password = credentials.split(':', 1)
-            return user == settings.user and password == settings.password
+            user, password = b64decode(auth[1]).decode('utf-8').split(':', 1)
+            credentials = Credentials(user, password)
+            return credentials in settings.auth
         return False
     return True
 

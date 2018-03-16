@@ -44,8 +44,7 @@ works recursively unless marked otherwise. Its structure is as follows:
     "filter": "Optional regex for hiding files by their names",
     "enable_galleries": "Whether to show image galleries (true/false)",
     "show_images_as_files": "Whether to show images in file list (true/false)",
-    "user": "User for basic authentication",
-    "password": "Password for basic authentication"
+    "auth": ["user1:password1", "user2":"password2"]
 }
 ```
 
