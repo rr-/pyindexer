@@ -172,6 +172,17 @@ def respond_not_found(request):
     return response
 
 
+def respond_access_denied(request):
+    response = Response()
+    response.status = 403
+    response.content_type = 'text/html'
+    response.text = (
+        jinja_env
+        .get_template('access-denied.htm')
+        .render(path=request.path_info))
+    return response
+
+
 def respond_listing(request, local_path, settings):
     try:
         obj = dict(parse_qsl(request.query_string))
@@ -252,6 +263,8 @@ def catch_all_route(request):
         return respond_not_found(request)
 
     if not os.path.isdir(local_path):
+        if os.path.basename(local_path) == SETTINGS_FILE:
+            return respond_access_denied(request)
         return FileResponse(local_path, content_type=get_mimetype(local_path))
 
     if not is_authorized(request, settings):
