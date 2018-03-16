@@ -242,8 +242,12 @@ def try_respond_image_resizer(root_path, request):
     os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
 
     if not os.path.exists(thumb_path):
-        image = Image.open(local_path).convert('RGB')
-        thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
+        try:
+            image = Image.open(local_path).convert('RGB')
+            thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
+        except Exception as ex:
+            logging.error(ex)
+            return respond_not_found(request)
         with open(thumb_path, 'wb') as handle:
             thumb.save(handle, format='jpeg')
 
