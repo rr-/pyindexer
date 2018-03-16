@@ -1,26 +1,25 @@
 import os
-import logging
 import re
-import json
 import mimetypes
-
-from collections import namedtuple
-from enum import Enum
 from datetime import datetime
 from tempfile import gettempdir
 from base64 import b64encode, b64decode
 from urllib.parse import parse_qsl, quote
 
 import jinja2
-
 from PIL import Image
 from PIL import ImageOps
 from pyramid.config import Configurator
 from pyramid.response import Response
 from pyramid.response import FileResponse
 
+from webindexer.settings import Settings
+from webindexer.settings import SortStyle
+from webindexer.settings import SortDir
+from webindexer.settings import Credentials
+from webindexer.settings import deserialize_settings
 
-logger = logging.getLogger(__name__)
+
 SETTINGS_FILE = 'indexer.json'
 THUMBNAIL_REGEX = re.compile('/.thumb(/.*)')
 IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
@@ -28,39 +27,6 @@ IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
 
 templates_dir = os.path.join(os.path.dirname(__file__), 'data')
 jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(templates_dir))
-
-
-class SortStyle(Enum):
-    Date = 'date'
-    Name = 'name'
-    Size = 'size'
-
-
-class SortDir(Enum):
-    Ascending = 'asc'
-    Descending = 'desc'
-
-    @staticmethod
-    def reverse(sort_dir):
-        if sort_dir == SortDir.Ascending:
-            return SortDir.Descending
-        return SortDir.Ascending
-
-
-class Settings:
-    def __init__(self):
-        self.filter = ''
-        self.header = ''
-        self.footer = ''
-        self.sort_style = SortStyle.Date
-        self.sort_dir = SortDir.Descending
-        self.recursive = True
-        self.enable_galleries = True
-        self.show_images_as_files = False
-        self.auth = []
-
-
-Credentials = namedtuple('Credentials', ['user', 'password'])
 
 
 class EntryProxy:
@@ -132,41 +98,6 @@ def list_entries(
             base_url, web_path, os.path.join(local_path, '..')))
 
     return dir_entries + file_entries
-
-
-def deserialize_settings(settings_path):
-    settings = Settings()
-    with open(settings_path, 'r') as handle:
-        try:
-            obj = json.load(handle)
-            if 'filter' in obj:
-                settings.filter = str(obj['filter'])
-            if 'header' in obj:
-                settings.header = str(obj['header'])
-            if 'footer' in obj:
-                settings.footer = str(obj['footer'])
-            if 'sort_style' in obj:
-                settings.sort_style = SortStyle(obj['sort_style'])
-            if 'sort_dir' in obj:
-                settings.sort_dir = SortDir(obj['sort_dir'])
-            if 'recursive' in obj:
-                settings.recursive = bool(obj['recursive'])
-            if 'enable_galleries' in obj:
-                settings.enable_galleries = bool(obj['enable_galleries'])
-            if 'show_images_as_files' in obj:
-                settings.show_images_as_files = bool(
-                    obj['show_images_as_files'])
-            if 'auth' in obj:
-                settings.auth = [
-                    Credentials(user, password)
-                    for user, password in (
-                        str(term).split(':', 1)
-                        for term in list(obj['auth'])
-                    )
-                ]
-        except Exception as ex:
-            logger.warning('Failed to decode %s (%s)', settings_path, ex)
-        return settings
 
 
 def get_settings(local_path, root_path):
