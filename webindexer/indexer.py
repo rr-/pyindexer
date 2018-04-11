@@ -2,12 +2,14 @@ import os
 import re
 import logging
 import mimetypes
+import hashlib
 from datetime import datetime
-from tempfile import gettempdir
-from base64 import b64encode, b64decode
+from base64 import b64decode
 from urllib.parse import parse_qsl, quote
+from pathlib import Path
 
 import jinja2
+import xdg
 from PIL import Image
 from PIL import ImageOps
 from pyramid.config import Configurator
@@ -27,8 +29,10 @@ THUMBNAIL_REGEX = re.compile('/.thumb(/.*)')
 IMAGE_EXTENSIONS = ('.jpg', '.gif', '.png', '.jpeg')
 
 
-templates_dir = os.path.join(os.path.dirname(__file__), 'data')
-jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(templates_dir))
+thumbs_dir = Path(xdg.XDG_CACHE_HOME) / 'webindexer-thumbs'
+templates_dir = Path(__file__).parent / 'data'
+jinja_env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(str(templates_dir)))
 
 
 class EntryProxy:
@@ -235,23 +239,22 @@ def try_respond_image_resizer(root_path, request):
     if not os.path.exists(local_path):
         return respond_not_found(request)
 
-    thumb_path = os.path.join(
-        gettempdir(),
-        'indexer-thumbs',
-        b64encode(local_path.encode()).decode() + '.jpg')
-    os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
+    thumb_path = thumbs_dir / (
+        hashlib.sha1(local_path.encode()).hexdigest() + '.jpg')
 
-    if not os.path.exists(thumb_path):
+    if not thumb_path.exists():
         try:
             image = Image.open(local_path).convert('RGB')
             thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
         except Exception as ex:
             logging.error(ex)
             return respond_not_found(request)
-        with open(thumb_path, 'wb') as handle:
-            thumb.save(handle, format='jpeg')
+        else:
+            thumbs_dir.mkdir(exist_ok=True, parents=True)
+            with thumb_path.open('wb') as handle:
+                thumb.save(handle, format='jpeg')
 
-    return FileResponse(thumb_path, content_type='image/jpeg')
+    return FileResponse(str(thumb_path), content_type='image/jpeg')
 
 
 def catch_all_route(request):

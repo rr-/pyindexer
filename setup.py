@@ -14,4 +14,5 @@ setup(
         'jinja2',
         'Pillow',
         'pyramid',
+        'xdg',
     ])
