@@ -1,5 +1,6 @@
 import json
 import logging
+from pathlib import Path
 from enum import Enum
 from collections import namedtuple
 
@@ -39,11 +40,10 @@ class Settings:
         self.auth_filtering = False
 
 
-def deserialize_settings(settings_path):
+def deserialize_settings(settings_path: Path):
     settings = Settings()
     try:
-        with open(settings_path, 'r') as handle:
-            obj = json.load(handle)
+        obj = json.loads(settings_path.read_text())
 
         if 'filter' in obj:
             settings.filter = str(obj['filter'])

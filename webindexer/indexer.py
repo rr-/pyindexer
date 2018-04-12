@@ -3,10 +3,11 @@ import re
 import logging
 import mimetypes
 import hashlib
+import typing as T
+from pathlib import Path
 from datetime import datetime
 from base64 import b64decode
 from urllib.parse import parse_qsl, quote
-from pathlib import Path
 
 import jinja2
 import xdg
@@ -35,33 +36,46 @@ jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(str(templates_dir)))
 
 
-class EntryProxy:
-    def __init__(self, base_url, web_path, path, is_dir, stat):
-        _, ext = os.path.splitext(path)
-        self.path = path
-        self.name = os.path.basename(self.path)
+class Entry:
+    def __init__(
+            self,
+            base_url: str,
+            web_path: str,
+            local_path: Path,
+    ) -> None:
+        self.local_path = local_path
         self.url = os.path.join(base_url, quote(web_path), quote(self.name))
-        if is_dir:
+        if local_path.is_dir():
             self.url += '/'
-        self.is_dir = is_dir
-        self.is_image = ext.lower() in IMAGE_EXTENSIONS
-        self.size = stat.st_size
-        self.mtime = datetime.fromtimestamp(stat.st_mtime)
 
-    @staticmethod
-    def from_scandir(base_url, web_path, entry):
-        return EntryProxy(
-            base_url, web_path, entry.path, entry.is_dir(), entry.stat())
+    @property
+    def name(self) -> str:
+        return self.local_path.name
 
-    @staticmethod
-    def from_path(base_url, web_path, local_path):
-        return EntryProxy(
-            base_url, web_path, local_path,
-            os.path.isdir(local_path),
-            os.stat(local_path))
+    @property
+    def is_dir(self) -> bool:
+        return self.local_path.is_dir()
+
+    @property
+    def is_image(self) -> bool:
+        return self.local_path.suffix.lower() in IMAGE_EXTENSIONS
+
+    @property
+    def mtime(self) -> datetime:
+        return datetime.fromtimestamp(self.local_path.stat().st_mtime)
+
+    @property
+    def size(self) -> int:
+        return self.local_path.stat().st_size
 
 
-def list_entries(base_url, web_path, local_path, settings, credentials):
+def list_entries(
+        base_url: str,
+        web_path: str,
+        local_path: Path,
+        settings,
+        credentials,
+):
     def name_sort_func(entry):
         return [
             int(text) if text.isdigit() else text.lower()
@@ -79,27 +93,31 @@ def list_entries(base_url, web_path, local_path, settings, credentials):
         SortStyle.Size: size_sort_func,
     }
 
-    dir_entries = []
-    file_entries = []
-    for entry in os.scandir(local_path):
-        if entry.name == SETTINGS_FILE:
+    dir_entries: T.List[Entry] = []
+    file_entries: T.List[Entry] = []
+    for subpath in local_path.iterdir():
+        if subpath.name == SETTINGS_FILE:
             continue
 
         try:
-            entry.stat()
+            subpath.stat()
         except FileNotFoundError:
             continue
 
-        entry_proxy = EntryProxy.from_scandir(base_url, web_path, entry)
-
-        if settings.filter and re.search(settings.filter, entry_proxy.name):
+        if settings.filter and re.search(settings.filter, subpath.name):
             continue
+
+        entry = Entry(
+            base_url=base_url,
+            web_path=web_path,
+            local_path=subpath,
+        )
 
         if settings.auth_filtering:
             try:
-                if 'user.access' in os.listxattr(entry_proxy.path):
+                if 'user.access' in os.listxattr(entry.local_path):
                     valid_users = (
-                        os.getxattr(entry_proxy.path, 'user.access')
+                        os.getxattr(str(entry.local_path), 'user.access')
                         .decode()
                         .split(':'))
                 else:
@@ -110,7 +128,7 @@ def list_entries(base_url, web_path, local_path, settings, credentials):
             if valid_users and credentials.user not in valid_users:
                 continue
 
-        [file_entries, dir_entries][entry.is_dir()].append(entry_proxy)
+        [file_entries, dir_entries][entry.is_dir].append(entry)
 
     for group in (dir_entries, file_entries):
         group.sort(key=sort_funcs[settings.sort_style])
@@ -118,20 +136,29 @@ def list_entries(base_url, web_path, local_path, settings, credentials):
             group.reverse()
 
     dir_entries.insert(
-        0, EntryProxy.from_path(
-            base_url, web_path, os.path.join(local_path, '..')))
+        0,
+        Entry(
+            base_url=base_url,
+            web_path=web_path,
+            local_path=local_path / '..',
+        ),
+    )
 
     return dir_entries + file_entries
 
 
-def get_settings(local_path, root_path):
+def get_settings(local_path: Path, root_path: Path):
     current_path = local_path
     iterations = 0
-    while current_path.startswith(root_path):
-        settings_path = os.path.join(current_path, SETTINGS_FILE)
-        current_path = os.path.dirname(current_path)
+    while True:
+        try:
+            current_path.relative_to(root_path)
+        except ValueError:
+            break
+        settings_path = current_path / SETTINGS_FILE
+        current_path = current_path.parent
         iterations += 1
-        if os.path.exists(settings_path):
+        if settings_path.exists():
             settings = deserialize_settings(settings_path)
             if iterations > 1 and not settings.recursive:
                 return Settings()
@@ -139,8 +166,8 @@ def get_settings(local_path, root_path):
     return Settings()
 
 
-def get_mimetype(filename):
-    mime_type, _encoding = mimetypes.guess_type(filename)
+def get_mimetype(filename: Path):
+    mime_type, _encoding = mimetypes.guess_type(str(filename))
     return mime_type or 'application/octet-stream'
 
 
@@ -187,7 +214,7 @@ def respond_access_denied(request):
     return response
 
 
-def respond_listing(request, local_path, settings):
+def respond_listing(request, local_path: Path, settings):
     try:
         obj = dict(parse_qsl(request.query_string))
         if 'sort_style' in obj:
@@ -229,22 +256,22 @@ def respond_listing(request, local_path, settings):
     return response
 
 
-def try_respond_image_resizer(root_path, request):
+def try_respond_image_resizer(root_path: Path, request):
     match = THUMBNAIL_REGEX.match(request.path_info)
     if not match:
         return None
 
-    local_path = root_path + match.group(1)
+    local_path = root_path / match.group(1).lstrip('/')
 
-    if not os.path.exists(local_path):
+    if not local_path.exists():
         return respond_not_found(request)
 
     thumb_path = thumbs_dir / (
-        hashlib.sha1(local_path.encode()).hexdigest() + '.jpg')
+        hashlib.sha1(str(local_path).encode()).hexdigest() + '.jpg')
 
     if not thumb_path.exists():
         try:
-            image = Image.open(local_path).convert('RGB')
+            image = Image.open(str(local_path)).convert('RGB')
             thumb = ImageOps.fit(image, (150, 150), Image.ANTIALIAS)
         except Exception as ex:
             logging.error(ex)
@@ -258,21 +285,23 @@ def try_respond_image_resizer(root_path, request):
 
 
 def catch_all_route(request):
-    root_path = request.environ['DOCUMENT_ROOT']
-    local_path = root_path + request.path_info
+    root_path = Path(request.environ['DOCUMENT_ROOT'])
+    local_path = root_path / request.path_info.lstrip('/')
     settings = get_settings(local_path, root_path)
 
     response = try_respond_image_resizer(root_path, request)
     if response:
         return response
 
-    if not os.path.exists(local_path):
+    if not local_path.exists():
         return respond_not_found(request)
 
-    if not os.path.isdir(local_path):
-        if os.path.basename(local_path) == SETTINGS_FILE:
+    if not local_path.is_dir():
+        if local_path.name == SETTINGS_FILE:
             return respond_access_denied(request)
-        return FileResponse(local_path, content_type=get_mimetype(local_path))
+        return FileResponse(
+            str(local_path),
+            content_type=get_mimetype(local_path))
 
     if not is_authorized(request, settings):
         return respond_login()
