@@ -225,10 +225,10 @@ def respond_listing(request, local_path: Path, settings):
         pass
 
     links = []
-    link = '/'
-    for group in [f for f in request.path_info.split('/') if f] + ['']:
+    link = ''
+    for group in [''] + [f for f in request.path_info.split('/') if f]:
+        link += group + '/'
         links.append((link, group))
-        link += '%s/' % group
 
     credentials = get_credentials(request)
 
