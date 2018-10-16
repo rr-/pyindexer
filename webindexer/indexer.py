@@ -114,18 +114,31 @@ def list_entries(
         )
 
         if settings.auth_filtering:
+            valid_users = set(settings.auth_default.split(':'))
             try:
-                if 'user.access' in os.listxattr(entry.local_path):
-                    valid_users = (
-                        os.getxattr(str(entry.local_path), 'user.access')
-                        .decode()
-                        .split(':'))
-                else:
-                    valid_users = []
+                for attr in os.listxattr(entry.local_path):
+                    if attr == 'user.access':
+                        valid_users = set(
+                            os.getxattr(str(entry.local_path), attr)
+                            .decode()
+                            .split(':')
+                        )
+                    elif attr == 'user.access_add':
+                        valid_users.update(
+                            os.getxattr(str(entry.local_path), attr)
+                            .decode()
+                            .split(':')
+                        )
+                    elif attr == 'user.access_del':
+                        valid_users.difference_update(
+                            os.getxattr(str(entry.local_path), attr)
+                            .decode()
+                            .split(':')
+                        )
             except OSError as ex:
                 logger.error(ex)
                 continue
-            if valid_users and credentials.user not in valid_users:
+            if credentials.user not in valid_users:
                 continue
 
         [file_entries, dir_entries][entry.is_dir].append(entry)

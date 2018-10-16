@@ -46,6 +46,8 @@ works recursively unless marked otherwise. Its structure is as follows:
     "enable_galleries": "Whether to show image galleries (true/false)",
     "show_images_as_files": "Whether to show images in file list (true/false)",
     "auth": ["user1:password1", "user2":"password2"],
+    "auth_default": "Default user names that have access to all resources
+    (user1:user2)",
     "auth_filtering": "Whether to use extended file attribute to control which
     user can see which files (true/false)"
 }
@@ -55,10 +57,19 @@ Note that the engine looks for `indexer.json` in parent directories and *stops
 on the first file found*. It does *not* merge settings
 from multiple parent directories.
 
-`auth_filtering` looks for `access` extended file attribute for each
-indexed file/directory. The field should contain user names eligible to access
-given file/directory, separated with `:`. If the field is empty, the
-file/directory can be accessed by every user.
+`auth_filtering` turns on basic view permission system. User names that are by
+default eligible to access each file/directory are specified in `auth_default`
+configuration field. This list can be overridden through extended file
+attributes for each indexed file/directory. The engine looks for the following
+three attributes:
+
+- `access` - overrides `auth_default` completely
+- `access_add` - permits additional user names with relation to the
+`auth_default` configuration field
+- `access_del` - revokes user names even if they were specified in
+`auth_default` configuration field
+
+Each of these fields contains user names separated with `:`.
 
 
 ### Example deployment with nginx, uwsgi and systemd

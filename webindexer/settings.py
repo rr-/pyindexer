@@ -37,6 +37,7 @@ class Settings:
         self.enable_galleries = True
         self.show_images_as_files = False
         self.auth = []
+        self.auth_default = ''
         self.auth_filtering = False
 
 
@@ -70,6 +71,8 @@ def deserialize_settings(settings_path: Path):
                     for term in list(obj['auth'])
                 )
             ]
+        if 'auth_default' in obj:
+            settings.auth_default = str(obj['auth_default'])
         if 'auth_filtering' in obj:
             settings.auth_filtering = bool(obj['auth_filtering'])
     except Exception as ex:
