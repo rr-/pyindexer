@@ -70,6 +70,7 @@ three attributes:
 `auth_default` configuration field
 
 Each of these fields contains user names separated with `:`.
+Permissions are inherited from parent directories.
 
 
 ### Example deployment with nginx, uwsgi and systemd

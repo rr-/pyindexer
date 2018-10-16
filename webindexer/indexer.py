@@ -69,6 +69,24 @@ class Entry:
         return self.local_path.stat().st_size
 
 
+def update_permissions(path: Path, valid_users: T.Set[str]) -> T.Set[str]:
+    ret = set(valid_users)
+    for attr in os.listxattr(path):
+        if attr == 'user.access':
+            ret = set(
+                os.getxattr(str(path), attr).decode().split(':')
+            )
+        elif attr == 'user.access_add':
+            ret = ret.union(
+                os.getxattr(str(path), attr).decode().split(':')
+            )
+        elif attr == 'user.access_del':
+            ret = ret.difference(
+                os.getxattr(str(path), attr).decode().split(':')
+            )
+    return ret
+
+
 def list_entries(
         base_url: str,
         web_path: str,
@@ -95,6 +113,12 @@ def list_entries(
 
     dir_entries: T.List[Entry] = []
     file_entries: T.List[Entry] = []
+
+    dir_valid_users = set(settings.auth_default.split(':'))
+    for parent in reversed(local_path.parents):
+        dir_valid_users = update_permissions(parent, dir_valid_users)
+    dir_valid_users = update_permissions(local_path, dir_valid_users)
+
     for subpath in local_path.iterdir():
         if subpath.name == SETTINGS_FILE:
             continue
@@ -114,31 +138,14 @@ def list_entries(
         )
 
         if settings.auth_filtering:
-            valid_users = set(settings.auth_default.split(':'))
             try:
-                for attr in os.listxattr(entry.local_path):
-                    if attr == 'user.access':
-                        valid_users = set(
-                            os.getxattr(str(entry.local_path), attr)
-                            .decode()
-                            .split(':')
-                        )
-                    elif attr == 'user.access_add':
-                        valid_users.update(
-                            os.getxattr(str(entry.local_path), attr)
-                            .decode()
-                            .split(':')
-                        )
-                    elif attr == 'user.access_del':
-                        valid_users.difference_update(
-                            os.getxattr(str(entry.local_path), attr)
-                            .decode()
-                            .split(':')
-                        )
+                entry_valid_users = update_permissions(
+                    entry.local_path, dir_valid_users
+                )
             except OSError as ex:
                 logger.error(ex)
                 continue
-            if credentials.user not in valid_users:
+            if credentials.user not in entry_valid_users:
                 continue
 
         [file_entries, dir_entries][entry.is_dir].append(entry)
