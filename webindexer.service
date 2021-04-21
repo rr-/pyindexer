@@ -6,6 +6,7 @@ After=syslog.target network.target
 Type=simple
 ExecStart=%h/.local/bin/uwsgi -s 127.0.0.1:40001 -w webindexer
 Restart=on-abort
+Environment=LC_CTYPE=en_US.UTF-8
 
 [Install]
 WantedBy=multi-user.target
